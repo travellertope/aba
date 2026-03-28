@@ -70,13 +70,15 @@ export const GET_EVENT_BY_SLUG = `
 
 export const GET_PODCASTS = `
   query GetPodcasts($first: Int = 12, $after: String) {
-    podcasts(first: $first, after: $after) {
+    podcasts(first: $first, after: $after, where: { orderby: { field: DATE, order: DESC } }) {
       nodes {
         id
         databaseId
         title
         slug
         excerpt
+        date
+        status
         featuredImage {
           node {
             sourceUrl
