@@ -1,8 +1,9 @@
 // Admin CRM Dashboard — Server Component
-// Fetches summary stats: members, warm leads, upcoming events.
-// Protected by middleware.ts (Step 4) — requires aba_manager or administrator role.
-// In Step 3: replace inline UI with components/admin/DashboardUI.tsx from v0.dev.
+// Auth.js v5: auth() reads session server-side.
+// Middleware guarantees only administrator/aba_manager/aba_staff can reach this page.
 
+import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
 import { wpGraphQL } from '@/lib/graphql/client';
 import { GET_MEMBERS, GET_WARM_LEADS, GET_EVENTS } from '@/lib/graphql/queries';
 import type { EventsConnection, WarmLeadsConnection } from '@/types';
@@ -19,44 +20,53 @@ interface MembersConnection {
   pageInfo: { hasNextPage: boolean; endCursor: string | null };
 }
 
-async function getAdminSummary() {
-  // Step 4: pass admin JWT token from session
-  const token = undefined;
-
+async function getAdminSummary(token: string) {
   const [membersData, leadsData, eventsData] = await Promise.allSettled([
     wpGraphQL<{ users: MembersConnection }>(GET_MEMBERS, { first: 100 }, token),
     wpGraphQL<{ warmLeads: WarmLeadsConnection }>(GET_WARM_LEADS, { first: 100 }, token),
     wpGraphQL<{ events: EventsConnection }>(GET_EVENTS, { first: 50 }),
   ]);
 
-  const members = membersData.status === 'fulfilled' ? membersData.value.users.nodes : [];
-  const leads = leadsData.status === 'fulfilled' ? leadsData.value.warmLeads.nodes : [];
-  const events = eventsData.status === 'fulfilled' ? eventsData.value.events.nodes : [];
-
-  return { members, leads, events };
+  return {
+    members: membersData.status === 'fulfilled' ? membersData.value.users.nodes : [],
+    leads: leadsData.status === 'fulfilled' ? leadsData.value.warmLeads.nodes : [],
+    events: eventsData.status === 'fulfilled' ? eventsData.value.events.nodes : [],
+  };
 }
 
 export default async function AdminDashboardPage() {
-  const { members, leads, events } = await getAdminSummary();
+  const session = await auth();
+  if (!session) redirect('/portal/login');
+
+  const { members, leads, events } = await getAdminSummary(session.accessToken);
 
   const activeMembers = members.filter((m) => m.subscriptionStatus === 'active').length;
   const newLeads = leads.filter((l) => l.leadStatus === 'new').length;
-  const upcomingEvents = events.filter(
+  const upcomingCount = events.filter(
     (e) => e.eventDate && new Date(e.eventDate) >= new Date(),
   ).length;
 
   const stats = [
     { label: 'Total Members', value: members.length, sub: `${activeMembers} active` },
     { label: 'Warm Leads', value: leads.length, sub: `${newLeads} new` },
-    { label: 'Upcoming Events', value: upcomingEvents, sub: `${events.length} total` },
+    { label: 'Upcoming Events', value: upcomingCount, sub: `${events.length} total` },
   ];
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-1">CRM & Membership Overview</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            CRM & Membership Overview · Logged in as{' '}
+            <span className="font-medium">{session.user.name}</span>{' '}
+            <span className="text-slate-400">({session.user.role})</span>
+          </p>
+        </div>
+        <a href="/portal/dashboard" className="text-sm text-blue-600 hover:underline">
+          Member View
+        </a>
       </div>
 
       {/* Stats — replace with components/admin/StatsGrid.tsx */}
@@ -70,7 +80,7 @@ export default async function AdminDashboardPage() {
         ))}
       </div>
 
-      {/* Recent Members table — replace with components/admin/MembersTable.tsx */}
+      {/* Members table — replace with components/admin/MembersTable.tsx */}
       <div className="bg-white rounded-xl border border-slate-200">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <h2 className="font-semibold text-slate-900">Recent Members</h2>
@@ -184,9 +194,10 @@ function LeadStatusBadge({ status }: { status: string | null }) {
     converted: 'bg-green-50 text-green-700',
     lost: 'bg-slate-100 text-slate-500',
   };
-  const cls = colors[status ?? ''] ?? 'bg-slate-100 text-slate-500';
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${cls}`}>
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${colors[status ?? ''] ?? 'bg-slate-100 text-slate-500'}`}
+    >
       {status ?? 'unknown'}
     </span>
   );

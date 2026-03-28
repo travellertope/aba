@@ -1,14 +1,14 @@
 // Member Portal Dashboard — Server Component
-// Fetches the current authenticated user's data from WPGraphQL.
-// Protected by middleware.ts (Step 4) — unauthenticated users are redirected to /portal/login.
-// In Step 3: replace the inline UI with components/portal/DashboardUI.tsx from v0.dev.
+// Auth.js v5: auth() reads the JWT session cookie server-side.
+// Middleware guarantees this page is only reachable by authenticated users.
 
-import { GET_CURRENT_USER, GET_EVENTS } from '@/lib/graphql/queries';
+import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
 import { wpGraphQL } from '@/lib/graphql/client';
+import { GET_CURRENT_USER, GET_EVENTS } from '@/lib/graphql/queries';
 import type { Member, EventsConnection } from '@/types';
 
-// Step 4: replace with getServerSession(authOptions)
-async function getCurrentUser(token?: string): Promise<Member | null> {
+async function getCurrentUser(token: string): Promise<Member | null> {
   try {
     const data = await wpGraphQL<{ viewer: Member }>(GET_CURRENT_USER, {}, token);
     return data.viewer;
@@ -17,60 +17,58 @@ async function getCurrentUser(token?: string): Promise<Member | null> {
   }
 }
 
-async function getUpcomingEvents() {
+async function getUpcomingEvents(): Promise<EventsConnection['nodes']> {
   try {
     const data = await wpGraphQL<{ events: EventsConnection }>(GET_EVENTS, { first: 5 });
-    return data.events.nodes;
+    return data.events.nodes.filter(
+      (e) => !e.eventDate || new Date(e.eventDate) >= new Date(),
+    );
   } catch {
     return [];
   }
 }
 
 export default async function PortalDashboardPage() {
-  // Step 4: const session = await getServerSession(authOptions);
-  // const token = session?.accessToken;
-  const token = undefined;
+  const session = await auth();
+  if (!session) redirect('/portal/login');
 
   const [user, upcomingEvents] = await Promise.all([
-    getCurrentUser(token),
+    getCurrentUser(session.accessToken),
     getUpcomingEvents(),
   ]);
+
+  const displayName = user?.firstName ?? session.user.name ?? 'Member';
+  const tier = user?.membershipTier ?? session.user.membershipTier ?? 'free';
+  const status = user?.subscriptionStatus ?? session.user.subscriptionStatus ?? 'inactive';
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Welcome back{user?.firstName ? `, ${user.firstName}` : ''}
-          </h1>
+          <h1 className="text-2xl font-bold text-slate-900">Welcome back, {displayName}</h1>
           <p className="text-sm text-slate-500 mt-1">
-            {user?.membershipTier
-              ? `${user.membershipTier.charAt(0).toUpperCase() + user.membershipTier.slice(1)} Member`
-              : 'ABA Member'}{' '}
-            ·{' '}
-            <span
-              className={
-                user?.subscriptionStatus === 'active' ? 'text-green-600' : 'text-amber-600'
-              }
-            >
-              {user?.subscriptionStatus ?? 'Status unknown'}
+            <span className="capitalize">{tier}</span> Member ·{' '}
+            <span className={status === 'active' ? 'text-green-600' : 'text-amber-600'}>
+              {status}
             </span>
           </p>
         </div>
-        <a
-          href="/portal/profile"
-          className="text-sm text-blue-600 hover:underline font-medium"
-        >
+        <a href="/portal/profile" className="text-sm text-blue-600 hover:underline font-medium">
           Edit Profile
         </a>
       </div>
 
-      {/* Stats cards — replace with components/portal/StatsGrid.tsx */}
+      {/* Stats — replace with components/portal/StatsGrid.tsx */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Membership Tier', value: user?.membershipTier ?? '—' },
-          { label: 'Membership Expires', value: user?.membershipExpires ?? '—' },
+          { label: 'Membership Tier', value: tier },
+          {
+            label: 'Membership Expires',
+            value: user?.membershipExpires
+              ? new Date(user.membershipExpires).toLocaleDateString('en-AU')
+              : '—',
+          },
           { label: 'Company', value: user?.companyName ?? '—' },
         ].map(({ label, value }) => (
           <div key={label} className="bg-white rounded-xl border border-slate-200 p-5">

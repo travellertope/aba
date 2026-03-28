@@ -1,37 +1,44 @@
 // Member Login Page
-// 'use client' — form interactions require client-side rendering.
-// In Step 4 this will call NextAuth signIn() with the WP credentials provider.
+// Uses Auth.js v5 Server Action pattern — no client-side signIn() call needed.
+// The <form action={loginAction}> posts credentials to the server action,
+// which calls signIn() and redirects on success.
 
-'use client';
+import { redirect } from 'next/navigation';
+import { auth, signIn } from '@/auth';
+import { AuthError } from 'next-auth';
 
-import { useState } from 'react';
+// If the user is already logged in, send them to the dashboard
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
+}) {
+  const session = await auth();
+  if (session) redirect('/portal/dashboard');
 
-export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { callbackUrl, error } = await searchParams;
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+  const errorMessages: Record<string, string> = {
+    CredentialsSignin: 'Invalid email or password. Please try again.',
+    Default: 'Something went wrong. Please try again.',
+  };
 
+  const errorMessage = error ? (errorMessages[error] ?? errorMessages.Default) : null;
+
+  async function loginAction(formData: FormData) {
+    'use server';
     try {
-      // Step 4: replace with NextAuth signIn()
-      // const result = await signIn('credentials', {
-      //   username: email,
-      //   password,
-      //   redirect: false,
-      // });
-      // if (result?.error) setError('Invalid email or password.');
-      // else router.push('/portal/dashboard');
-
-      console.log('Login placeholder — wired in Step 4', { email });
-    } catch {
-      setError('Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
+      await signIn('credentials', {
+        username: formData.get('username') as string,
+        password: formData.get('password') as string,
+        redirectTo: callbackUrl ?? '/portal/dashboard',
+      });
+    } catch (err) {
+      // Auth.js throws a redirect on success — only catch real errors
+      if (err instanceof AuthError) {
+        redirect(`/portal/login?error=${err.type}`);
+      }
+      throw err; // Re-throw redirect signals
     }
   }
 
@@ -42,29 +49,26 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-slate-900">Member Login</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Access your ABA member dashboard
-            </p>
+            <p className="mt-1 text-sm text-slate-500">Access your ABA member dashboard</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+          <form action={loginAction} className="space-y-4">
+            {errorMessage && (
               <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                {error}
+                {errorMessage}
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-1">
                 Email address
               </label>
               <input
-                id="email"
+                id="username"
+                name="username"
                 type="email"
                 autoComplete="email"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="you@company.com"
               />
@@ -76,11 +80,10 @@ export default function LoginPage() {
               </label>
               <input
                 id="password"
+                name="password"
                 type="password"
                 autoComplete="current-password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="••••••••"
               />
@@ -98,10 +101,9 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full rounded-md bg-slate-900 text-white py-2.5 text-sm font-semibold hover:bg-slate-700 disabled:opacity-50 transition"
+              className="w-full rounded-md bg-slate-900 text-white py-2.5 text-sm font-semibold hover:bg-slate-700 transition"
             >
-              {loading ? 'Signing in…' : 'Sign In'}
+              Sign In
             </button>
           </form>
 

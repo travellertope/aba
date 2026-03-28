@@ -1,31 +1,48 @@
-// Middleware — Route Protection
-// Step 4 will fully implement this using NextAuth's withAuth middleware.
-// For now, it stubs the structure so the routing rules are visible.
+// Middleware — Route Protection via Auth.js v5
+// Runs on every matched request at the Edge before the page renders.
+// Auth.js exports a `auth` middleware helper that reads the JWT session cookie.
 
+import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Roles that may access /admin routes
-const ADMIN_ROLES = ['administrator', 'aba_manager', 'aba_staff'];
+const ADMIN_ROLES = ['administrator', 'aba_manager', 'aba_staff'] as const;
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export default auth((req: NextRequest & { auth: Awaited<ReturnType<typeof auth>> | null }) => {
+  const { pathname } = req.nextUrl;
+  const session = req.auth;
 
-  // ── Step 4: Replace with NextAuth token check ────────────
-  // const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-  //
-  // if (!token && pathname.startsWith('/portal') && pathname !== '/portal/login') {
-  //   return NextResponse.redirect(new URL('/portal/login', request.url));
-  // }
-  //
-  // if (pathname.startsWith('/admin') && !ADMIN_ROLES.includes(token?.role as string)) {
-  //   return NextResponse.redirect(new URL('/portal/dashboard', request.url));
-  // }
+  // ── Unauthenticated users hitting /portal/* (except login) ──
+  if (!session && pathname.startsWith('/portal') && !pathname.startsWith('/portal/login')) {
+    const loginUrl = new URL('/portal/login', req.url);
+    loginUrl.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // ── Authenticated users hitting the login page → redirect to dashboard ──
+  if (session && pathname.startsWith('/portal/login')) {
+    return NextResponse.redirect(new URL('/portal/dashboard', req.url));
+  }
+
+  // ── /admin/* — requires manager/admin/staff role ──
+  if (pathname.startsWith('/admin')) {
+    if (!session) {
+      return NextResponse.redirect(new URL('/portal/login', req.url));
+    }
+    const role = session.user?.role as string | undefined;
+    if (!role || !ADMIN_ROLES.includes(role as (typeof ADMIN_ROLES)[number])) {
+      // Member without admin access → back to their dashboard
+      return NextResponse.redirect(new URL('/portal/dashboard', req.url));
+    }
+  }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
-  // Protect /portal (except login) and all /admin routes
-  matcher: ['/portal/((?!login|forgot-password).*)' , '/admin/:path*'],
+  matcher: [
+    // Match /portal/* and /admin/* but skip Next.js internals and static files
+    '/portal/((?!_next|favicon.ico).*)',
+    '/admin/((?!_next|favicon.ico).*)',
+  ],
 };
