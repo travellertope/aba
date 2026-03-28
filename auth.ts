@@ -140,11 +140,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // Expose the JWT fields on the client-accessible session object
     async session({ session, token }) {
       session.user.id = token.sub as string;
-      session.user.role = token.role;
-      session.user.membershipTier = token.membershipTier;
-      session.user.subscriptionStatus = token.subscriptionStatus;
-      session.accessToken = token.accessToken;
-      session.refreshToken = token.refreshToken;
+      session.user.role = token.role as AbaRole;
+      session.user.membershipTier = token.membershipTier as MembershipTier;
+      session.user.subscriptionStatus = token.subscriptionStatus as SubscriptionStatus;
+      session.accessToken = token.accessToken as string;
+      session.refreshToken = token.refreshToken as string;
       return session;
     },
   },
