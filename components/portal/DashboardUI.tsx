@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useSession } from "next-auth/react";
 import {
   Building2,
   LogOut,
@@ -58,6 +59,12 @@ const quickActions = [
 
 /* ─── component ─── */
 export default function DashboardUI() {
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(" ")[0] ?? "Member";
+  const fullName = session?.user?.name ?? "Member";
+  const tier = session?.user?.membershipTier ?? "member";
+  const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1) + " Member";
+
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f3f4f6", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <style>{`
@@ -128,8 +135,8 @@ export default function DashboardUI() {
           </a>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ textAlign: "right" }}>
-              <p style={{ fontSize: 14, fontWeight: 600, color: "white" }}>John Adeyemi</p>
-              <p style={{ fontSize: 11, color: "#9ca3af" }}>Executive Member</p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: "white" }}>{fullName}</p>
+              <p style={{ fontSize: 11, color: "#9ca3af" }}>{tierLabel}</p>
             </div>
             <a href="/portal" title="Sign out">
               <LogOut style={{ width: 20, height: 20, color: "#9ca3af", cursor: "pointer" }} />
@@ -177,7 +184,7 @@ export default function DashboardUI() {
           marginBottom: "1.5rem",
         }}>
           <h1 style={{ fontSize: 26, fontWeight: 700, color: "white" }}>
-            Welcome back, John! 👋
+            Welcome back, {firstName}! 👋
           </h1>
           <p style={{ marginTop: 6, fontSize: 15, color: "#d1d5db" }}>
             Here&apos;s what&apos;s happening with your membership
