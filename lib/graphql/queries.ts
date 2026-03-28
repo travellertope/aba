@@ -276,7 +276,9 @@ export const GET_MEMBERS = `
         firstName
         lastName
         abaRole
+        phone
         companyName
+        jobTitle
         membershipTier
         subscriptionStatus
         membershipExpires
