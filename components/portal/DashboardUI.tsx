@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import {
   Building2,
   LogOut,
@@ -138,9 +138,13 @@ export default function DashboardUI() {
               <p style={{ fontSize: 14, fontWeight: 600, color: "white" }}>{fullName}</p>
               <p style={{ fontSize: 11, color: "#9ca3af" }}>{tierLabel}</p>
             </div>
-            <a href="/portal" title="Sign out">
-              <LogOut style={{ width: 20, height: 20, color: "#9ca3af", cursor: "pointer" }} />
-            </a>
+            <button
+              title="Sign out"
+              onClick={() => signOut({ callbackUrl: "/portal" })}
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex" }}
+            >
+              <LogOut style={{ width: 20, height: 20, color: "#9ca3af" }} />
+            </button>
           </div>
         </div>
       </header>
