@@ -186,6 +186,23 @@ export default function HomepageUI({ events = [] }: { events?: Event[] }) {
             grid-template-columns: repeat(4, 1fr);
           }
         }
+        .aba-desktop-nav {
+          display: flex;
+        }
+        .aba-hamburger {
+          display: none;
+        }
+        .aba-mobile-menu {
+          display: block;
+        }
+        @media (max-width: 767px) {
+          .aba-desktop-nav {
+            display: none !important;
+          }
+          .aba-hamburger {
+            display: flex !important;
+          }
+        }
       `}</style>
 
       {/* ════════════ NAVBAR ════════════ */}
@@ -202,8 +219,8 @@ export default function HomepageUI({ events = [] }: { events?: Event[] }) {
             </div>
           </div>
 
-          {/* desktop nav */}
-          <nav style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+          {/* desktop nav — hidden on mobile via CSS class */}
+          <nav className="aba-desktop-nav" style={{ alignItems: "center", gap: "1.5rem" }}>
             {navLinks.map((l) => (
               <a key={l} href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none" }}>{l}</a>
             ))}
@@ -212,7 +229,30 @@ export default function HomepageUI({ events = [] }: { events?: Event[] }) {
               Become a Member
             </button>
           </nav>
+
+          {/* hamburger — hidden on desktop via CSS class */}
+          <button
+            className="aba-hamburger"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            style={{ background: "none", border: "none", color: "white", cursor: "pointer", padding: 4 }}
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? <X style={{ width: 24, height: 24 }} /> : <Menu style={{ width: 24, height: 24 }} />}
+          </button>
         </div>
+
+        {/* mobile dropdown */}
+        {mobileMenuOpen && (
+          <div className="aba-mobile-menu" style={{ backgroundColor: navy, borderTop: "1px solid rgba(255,255,255,0.1)", padding: "1rem" }}>
+            {navLinks.map((l) => (
+              <a key={l} href="#" onClick={() => setMobileMenuOpen(false)} style={{ display: "block", fontSize: 14, color: "#d1d5db", textDecoration: "none", padding: "0.625rem 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>{l}</a>
+            ))}
+            <a href="#" onClick={() => setMobileMenuOpen(false)} style={{ display: "block", fontSize: 14, color: "#9ca3af", textDecoration: "none", padding: "0.625rem 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>Member Portal / Login</a>
+            <button style={{ marginTop: "0.75rem", width: "100%", backgroundColor: gold, color: "white", border: "none", borderRadius: 6, padding: "0.625rem", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+              Become a Member
+            </button>
+          </div>
+        )}
       </header>
 
       {/* ════════════ HERO ════════════ */}
