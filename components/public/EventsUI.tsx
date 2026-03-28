@@ -24,6 +24,12 @@ const HERO_BG = "data:image/webp;base64,UklGRm6rAABXRUJQVlA4WAoAAAAIAAAApwIAxQEA
 
 /* ─── dummy data ─── */
 const navLinks = ["About", "Membership", "Events", "Directory"];
+const navHrefs: Record<string, string> = {
+  About: "/about",
+  Membership: "/membership",
+  Events: "/events",
+  Directory: "/directory",
+};
 const quickLinks = ["About Us", "Membership", "Events", "News & Insights"];
 const resources = ["Member Directory", "Business Resources", "Policy Papers", "Success Stories"];
 
@@ -135,10 +141,12 @@ export default function EventsUI() {
           </div>
           <nav style={{ display: "flex", alignItems: "center", gap: "1.75rem" }}>
             {navLinks.map((l) => (
-              <a key={l} href="#" style={{ fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: l === "Events" ? gold : "#d1d5db", textDecoration: "none" }}>{l}</a>
+              <a key={l} href={navHrefs[l]} style={{ fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: l === "Events" ? gold : "#d1d5db", textDecoration: "none" }}>{l}</a>
             ))}
-            <span style={{ fontSize: 12, color: "#9ca3af", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.03em" }}>Member Portal Login</span>
-            <button style={{ backgroundColor: gold, color: "white", border: "none", borderRadius: 6, padding: "0.5rem 1.25rem", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.04em" }}>Become a Member</button>
+            <a href="/portal" style={{ fontSize: 12, color: "#9ca3af", textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.03em" }}>Member Portal Login</a>
+            <a href="/membership" style={{ textDecoration: "none" }}>
+              <button style={{ backgroundColor: gold, color: "white", border: "none", borderRadius: 6, padding: "0.5rem 1.25rem", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.04em" }}>Become a Member</button>
+            </a>
           </nav>
         </div>
       </header>

@@ -30,6 +30,12 @@ const HERO_BG = "data:image/webp;base64,UklGRm6rAABXRUJQVlA4WAoAAAAIAAAApwIAxQEA
 
 /* ─── dummy data ─── */
 const navLinks = ["About", "Membership", "Events", "Directory"];
+const navHrefs: Record<string, string> = {
+  About: "/about",
+  Membership: "/membership",
+  Events: "/events",
+  Directory: "/directory",
+};
 
 const partnerLogos = [
   "Bradford Council",
@@ -222,12 +228,14 @@ export default function HomepageUI({ events = [] }: { events?: Event[] }) {
           {/* desktop nav — hidden on mobile via CSS class */}
           <nav className="aba-desktop-nav" style={{ alignItems: "center", gap: "1.5rem" }}>
             {navLinks.map((l) => (
-              <a key={l} href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none" }}>{l}</a>
+              <a key={l} href={navHrefs[l]} style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none" }}>{l}</a>
             ))}
-            <span style={{ fontSize: 13, color: "#9ca3af", cursor: "pointer" }}>Member Portal / Login</span>
-            <button style={{ backgroundColor: gold, color: "white", border: "none", borderRadius: 6, padding: "0.5rem 1.25rem", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              Become a Member
-            </button>
+            <a href="/portal" style={{ fontSize: 13, color: "#9ca3af", textDecoration: "none" }}>Member Portal / Login</a>
+            <a href="/membership" style={{ textDecoration: "none" }}>
+              <button style={{ backgroundColor: gold, color: "white", border: "none", borderRadius: 6, padding: "0.5rem 1.25rem", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                Become a Member
+              </button>
+            </a>
           </nav>
 
           {/* hamburger — hidden on desktop via CSS class */}
@@ -245,12 +253,14 @@ export default function HomepageUI({ events = [] }: { events?: Event[] }) {
         {mobileMenuOpen && (
           <div className="aba-mobile-menu" style={{ backgroundColor: navy, borderTop: "1px solid rgba(255,255,255,0.1)", padding: "1rem" }}>
             {navLinks.map((l) => (
-              <a key={l} href="#" onClick={() => setMobileMenuOpen(false)} style={{ display: "block", fontSize: 14, color: "#d1d5db", textDecoration: "none", padding: "0.625rem 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>{l}</a>
+              <a key={l} href={navHrefs[l]} onClick={() => setMobileMenuOpen(false)} style={{ display: "block", fontSize: 14, color: "#d1d5db", textDecoration: "none", padding: "0.625rem 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>{l}</a>
             ))}
-            <a href="#" onClick={() => setMobileMenuOpen(false)} style={{ display: "block", fontSize: 14, color: "#9ca3af", textDecoration: "none", padding: "0.625rem 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>Member Portal / Login</a>
-            <button style={{ marginTop: "0.75rem", width: "100%", backgroundColor: gold, color: "white", border: "none", borderRadius: 6, padding: "0.625rem", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-              Become a Member
-            </button>
+            <a href="/portal" onClick={() => setMobileMenuOpen(false)} style={{ display: "block", fontSize: 14, color: "#9ca3af", textDecoration: "none", padding: "0.625rem 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>Member Portal / Login</a>
+            <a href="/membership" style={{ textDecoration: "none" }}>
+              <button style={{ marginTop: "0.75rem", width: "100%", backgroundColor: gold, color: "white", border: "none", borderRadius: 6, padding: "0.625rem", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                Become a Member
+              </button>
+            </a>
           </div>
         )}
       </header>
