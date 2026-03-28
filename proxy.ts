@@ -25,9 +25,9 @@ export const proxy = auth((req: NextAuthRequest) => {
     }
 
     // ── /admin/* — requires manager/admin/staff role ──
-    if (pathname.startsWith('/admin')) {
+    if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
       if (!session) {
-        return NextResponse.redirect(new URL('/portal/login', req.url));
+        return NextResponse.redirect(new URL('/admin/login', req.url));
       }
       const role = session.user?.role as string | undefined;
       if (!role || !ADMIN_ROLES.includes(role as (typeof ADMIN_ROLES)[number])) {
