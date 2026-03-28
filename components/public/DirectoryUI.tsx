@@ -9,7 +9,7 @@ import {
   Phone,
   Building2,
   Linkedin,
-  Twitter,
+  Share2,
   Facebook,
 } from "lucide-react";
 
@@ -330,7 +330,7 @@ export default function DirectoryUI() {
             </p>
             <div style={{ display: "flex", gap: 16 }}>
               <Linkedin style={{ width: 18, height: 18, color: "#6b7280", cursor: "pointer" }} />
-              <Twitter style={{ width: 18, height: 18, color: "#6b7280", cursor: "pointer" }} />
+              <Share2 style={{ width: 18, height: 18, color: "#6b7280", cursor: "pointer" }} />
               <Facebook style={{ width: 18, height: 18, color: "#6b7280", cursor: "pointer" }} />
             </div>
           </div>
