@@ -1,6 +1,6 @@
 // Admin Login Page — Server Component
 // Uses the same Auth.js v5 server action pattern as the portal login,
-// but redirects to /admin/dashboard and enforces admin role check.
+// but redirects to /admin/dashboard on success.
 
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
@@ -36,28 +36,19 @@ export default async function AdminLoginPage({
   async function loginAction(formData: FormData) {
     "use server";
 
-    let loginResult;
     try {
-      loginResult = await signIn("credentials", {
+      await signIn("credentials", {
         username: formData.get("username") as string,
         password: formData.get("password") as string,
-        redirect: false,
+        redirectTo: "/admin/dashboard",
       });
     } catch (err) {
+      // Auth.js throws a NEXT_REDIRECT on success — only catch real errors
       if (err instanceof AuthError) {
         redirect(`/admin/login?error=${err.type}`);
       }
-      throw err;
+      throw err; // Re-throw redirect signals
     }
-
-    // After successful sign-in, verify the user has an admin role
-    const session = await auth();
-    if (!session || !ADMIN_ROLES.has(session.user.role)) {
-      // Sign out the non-admin user silently and show access denied
-      redirect("/admin/login?error=AccessDenied");
-    }
-
-    redirect("/admin/dashboard");
   }
 
   return <LoginUI action={loginAction} errorMessage={errorMessage} />;

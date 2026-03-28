@@ -12,13 +12,22 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+// ─── Icon map (server passes string keys, client resolves to components) ──
+
+const iconMap: Record<string, LucideIcon> = {
+  Users,
+  CalendarDays,
+  PoundSterling,
+  TrendingUp,
+};
+
 // ─── Props ────────────────────────────────────────────────────
 
 export interface DashboardStat {
   label: string;
   value: string;
   change: string;
-  icon: LucideIcon;
+  iconKey: string;
   iconBg: string;
   iconColor: string;
 }
@@ -51,7 +60,7 @@ export interface CRMDashboardProps {
   upcomingEvents: UpcomingEvent[];
 }
 
-// ─── Quick Actions (static) ──────────────────────────────────
+// ─── Quick Actions (static — lives entirely in the client component) ─────
 
 const quickActions = [
   {
@@ -100,25 +109,28 @@ export default function CRMDashboardUI({
 
       {/* ── Stats Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm"
-          >
+        {stats.map((stat) => {
+          const Icon = iconMap[stat.iconKey] ?? Users;
+          return (
             <div
-              className={`w-10 h-10 rounded-lg ${stat.iconBg} flex items-center justify-center mb-4`}
+              key={stat.label}
+              className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm"
             >
-              <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
+              <div
+                className={`w-10 h-10 rounded-lg ${stat.iconBg} flex items-center justify-center mb-4`}
+              >
+                <Icon className={`w-5 h-5 ${stat.iconColor}`} />
+              </div>
+              <p className="text-xs text-gray-500 font-medium">{stat.label}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {stat.value}
+              </p>
+              <p className="text-xs text-green-600 font-medium mt-1">
+                {stat.change}
+              </p>
             </div>
-            <p className="text-xs text-gray-500 font-medium">{stat.label}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">
-              {stat.value}
-            </p>
-            <p className="text-xs text-green-600 font-medium mt-1">
-              {stat.change}
-            </p>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* ── System Alerts ── */}

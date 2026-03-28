@@ -8,7 +8,6 @@ import { wpGraphQL } from "@/lib/graphql/client";
 import { GET_DASHBOARD_SUMMARY } from "@/lib/graphql/queries";
 import CRMDashboardUI from "@/components/admin/CRMDashboardUI";
 import type { DashboardStat, DashboardAlert, RecentMember, UpcomingEvent } from "@/components/admin/CRMDashboardUI";
-import { Users, CalendarDays, PoundSterling, TrendingUp } from "lucide-react";
 import type { PageInfo } from "@/types";
 
 // ─── GraphQL response shape ──────────────────────────────────
@@ -74,7 +73,7 @@ function formatEventDate(dateStr: string): string {
 
 export default async function AdminDashboardPage() {
   const session = await auth();
-  if (!session) redirect("/portal/login");
+  if (!session) redirect("/admin/login");
 
   // Fetch all dashboard data in a single GraphQL request
   let members: DashboardMember[] = [];
@@ -97,7 +96,6 @@ export default async function AdminDashboardPage() {
   // ── Compute stats ──────────────────────────────────────────
 
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const activeMembers = members.filter((m) => m.subscriptionStatus === "active").length;
 
@@ -115,14 +113,14 @@ export default async function AdminDashboardPage() {
 
   const newLeads = leads.filter((l) => l.leadStatus === "new").length;
 
-  // ── Build props ────────────────────────────────────────────
+  // ── Build props (string keys for icons — not component refs) ──
 
   const stats: DashboardStat[] = [
     {
       label: "Total Members",
       value: members.length.toString(),
       change: `${activeMembers} active`,
-      icon: Users,
+      iconKey: "Users",
       iconBg: "bg-blue-900",
       iconColor: "text-amber-400",
     },
@@ -130,7 +128,7 @@ export default async function AdminDashboardPage() {
       label: "Upcoming Events",
       value: upcomingEvents.length.toString(),
       change: `${events.length} total`,
-      icon: CalendarDays,
+      iconKey: "CalendarDays",
       iconBg: "bg-green-600",
       iconColor: "text-white",
     },
@@ -138,7 +136,7 @@ export default async function AdminDashboardPage() {
       label: "Warm Leads",
       value: leads.length.toString(),
       change: `${newLeads} new`,
-      icon: PoundSterling,
+      iconKey: "PoundSterling",
       iconBg: "bg-amber-500",
       iconColor: "text-white",
     },
@@ -146,7 +144,7 @@ export default async function AdminDashboardPage() {
       label: "Attendance Rate",
       value: `${activeMembers > 0 ? Math.round((activeMembers / members.length) * 100) : 0}%`,
       change: "Active member ratio",
-      icon: TrendingUp,
+      iconKey: "TrendingUp",
       iconBg: "bg-purple-500",
       iconColor: "text-white",
     },
