@@ -18,6 +18,7 @@ import {
   BarChart3,
   Quote,
 } from "lucide-react";
+import type { Event } from "@/types";
 
 /* ─── colour tokens (from screenshot) ─── */
 const navy = "#1a2340";
@@ -33,7 +34,6 @@ const navLinks = ["About", "Membership", "Events", "Directory"];
 const partnerLogos = [
   "Bradford Council",
   "University of Bradford",
-import type { Event } from '@/types';
   "Chamber of Commerce",
   "Business Growth Hub",
 ];
@@ -137,7 +137,16 @@ const resources = [
 export default function HomepageUI({ events = [] }: { events?: Event[] }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const displayedEvents = events.length > 0 ? events : FALLBACK_EVENTS;
+  const displayedEvents = events.length > 0
+    ? events.map((ev) => ({
+        title: ev.title,
+        date: ev.eventDate ? new Date(ev.eventDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "TBA",
+        location: ev.eventLocation ?? ev.eventLink ?? "Location TBA",
+        capacity: ev.eventSpotsRemaining != null ? \`\${ev.eventSpotsRemaining} spots left\` : "",
+        memberPrice: ev.eventMemberPrice != null ? \`£\${ev.eventMemberPrice}\` : "Free",
+        nonMemberPrice: ev.eventNonMemberPrice != null ? \`£\${ev.eventNonMemberPrice}\` : "—",
+      }))
+    : FALLBACK_EVENTS;
   return (
     <div className="min-h-screen bg-white text-gray-900" style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>
       {/* Responsive grid styles — guarantees 3-col layout on desktop */}
