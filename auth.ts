@@ -34,7 +34,8 @@ declare module 'next-auth' {
   }
 }
 
-declare module 'next-auth/jwt' {
+// In next-auth v5, JWT is augmented inside 'next-auth', not 'next-auth/jwt'
+declare module 'next-auth' {
   interface JWT {
     accessToken: string;
     refreshToken: string;
