@@ -179,6 +179,10 @@ export const GET_WARM_LEADS = `
         leadCompany
         assignedTo
         followUpDate
+        leadScore
+        leadVisits
+        leadEventsAttended
+        leadInterests
       }
       pageInfo {
         hasNextPage

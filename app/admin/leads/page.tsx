@@ -24,6 +24,10 @@ interface LeadNode {
   leadCompany: string | null;
   assignedTo: number | null;
   followUpDate: string | null;
+  leadScore: number | null;
+  leadVisits: number | null;
+  leadEventsAttended: number | null;
+  leadInterests: string[] | null;
 }
 
 interface WarmLeadsResponse {
@@ -43,19 +47,6 @@ function getInitials(name: string): string {
   return name.substring(0, 2).toUpperCase();
 }
 
-/** Compute a simple engagement score from available lead data. */
-function computeScore(lead: LeadNode): number {
-  let score = 50; // base
-  if (lead.leadStatus === "qualified") score += 30;
-  else if (lead.leadStatus === "contacted") score += 15;
-  else if (lead.leadStatus === "new") score += 5;
-  if (lead.leadEmail) score += 5;
-  if (lead.leadPhone) score += 5;
-  if (lead.leadNotes && lead.leadNotes.length > 50) score += 5;
-  if (lead.followUpDate) score += 5;
-  return Math.min(score, 100);
-}
-
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("en-GB", {
@@ -63,11 +54,6 @@ function formatDate(dateStr: string | null): string {
     month: "short",
     year: "numeric",
   });
-}
-
-function capitalizeSource(source: string | null): string {
-  if (!source) return "—";
-  return source.charAt(0).toUpperCase() + source.slice(1);
 }
 
 // ─── Page ────────────────────────────────────────────────────
@@ -89,18 +75,17 @@ export default async function AdminLeadsPage() {
     // Graceful degradation — renders empty state
   }
 
-  // ── Compute scores and classify ────────────────────────────
+  // ── Classify leads by score ────────────────────────────────
 
-  const scoredLeads = leadNodes.map((l) => ({
-    ...l,
-    score: computeScore(l),
-  }));
+  const hotLeads = leadNodes.filter((l) => (l.leadScore ?? 0) >= 90);
+  const warmLeads = leadNodes.filter((l) => {
+    const s = l.leadScore ?? 0;
+    return s >= 75 && s < 90;
+  });
 
-  const hotLeads = scoredLeads.filter((l) => l.score >= 90);
-  const warmLeads = scoredLeads.filter((l) => l.score >= 75 && l.score < 90);
-  const totalVisits = scoredLeads.length; // proxy: each lead = 1 visit
-  const avgVisits = scoredLeads.length > 0
-    ? (totalVisits / scoredLeads.length).toFixed(1)
+  const totalVisits = leadNodes.reduce((sum, l) => sum + (l.leadVisits ?? 0), 0);
+  const avgVisits = leadNodes.length > 0
+    ? (totalVisits / leadNodes.length).toFixed(1)
     : "0";
 
   // ── Build stats ────────────────────────────────────────────
@@ -121,18 +106,16 @@ export default async function AdminLeadsPage() {
       borderColor: "border-l-amber-500",
     },
     {
-      label: "Total Leads",
-      value: scoredLeads.length.toString(),
-      sub: "All statuses",
+      label: "Total Visits",
+      value: totalVisits.toString(),
+      sub: "Across all leads",
       iconKey: "Eye",
       borderColor: "border-l-blue-500",
     },
     {
-      label: "Follow-ups Due",
-      value: scoredLeads
-        .filter((l) => l.followUpDate && new Date(l.followUpDate) <= new Date())
-        .length.toString(),
-      sub: "Overdue or today",
+      label: "Avg. Visits",
+      value: avgVisits,
+      sub: "Per lead",
       iconKey: "CalendarDays",
       borderColor: "border-l-green-500",
     },
@@ -140,27 +123,28 @@ export default async function AdminLeadsPage() {
 
   // ── Build lead cards (sorted by score desc) ────────────────
 
-  const leads: LeadCard[] = scoredLeads
-    .sort((a, b) => b.score - a.score)
+  const leads: LeadCard[] = leadNodes
+    .sort((a, b) => (b.leadScore ?? 0) - (a.leadScore ?? 0))
     .map((l) => {
-      const scoreType = l.score >= 90 ? "hot" as const : "warm" as const;
+      const score = l.leadScore ?? 0;
+      const scoreType = score >= 90 ? "hot" as const : "warm" as const;
       const scoreLabel = scoreType === "hot" ? "Hot Lead" : "Warm Lead";
       return {
         id: String(l.databaseId),
         initials: getInitials(l.title),
         name: l.title,
-        scoreBadge: `${scoreLabel} · ${l.score}`,
+        scoreBadge: `${scoreLabel} · ${score}`,
         scoreType,
         company: l.leadCompany ?? "—",
         email: l.leadEmail ?? "—",
         phone: l.leadPhone ?? "—",
-        visits: 1, // Single visit proxy — extend when analytics available
+        visits: l.leadVisits ?? 0,
         lastVisit: formatDate(l.followUpDate),
-        eventsAttended: 0, // Not available in current schema
-        interests: l.leadSource ? [capitalizeSource(l.leadSource)] : [],
-        events: [], // Not available in current schema
+        eventsAttended: l.leadEventsAttended ?? 0,
+        interests: l.leadInterests ?? [],
+        events: [], // Event names not stored on lead — extend when event attendance tracking is added
         notes: l.leadNotes ?? "No notes recorded.",
-        callHighlighted: l.score >= 95,
+        callHighlighted: score >= 95,
       };
     });
 

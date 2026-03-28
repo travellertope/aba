@@ -195,14 +195,18 @@ function aba_register_post_meta() {
 
     // ── Warm Lead Meta ───────────────────────────────────────
     $lead_fields = [
-        'lead_source'       => 'string',   // event | referral | website | direct
-        'lead_status'       => 'string',   // new | contacted | qualified | converted | lost
-        'lead_notes'        => 'string',
-        'lead_email'        => 'string',
-        'lead_phone'        => 'string',
-        'lead_company'      => 'string',
-        'lead_assigned_to'  => 'integer',  // WP user ID of staff member
+        'lead_source'         => 'string',   // event | referral | website | direct
+        'lead_status'         => 'string',   // new | contacted | qualified | converted | lost
+        'lead_notes'          => 'string',
+        'lead_email'          => 'string',
+        'lead_phone'          => 'string',
+        'lead_company'        => 'string',
+        'lead_assigned_to'    => 'integer',  // WP user ID of staff member
         'lead_follow_up_date' => 'string',
+        'lead_score'          => 'integer',  // 0–100 engagement score
+        'lead_visits'         => 'integer',  // number of site/event visits
+        'lead_events_attended'=> 'integer',  // number of events attended
+        'lead_interests'      => 'string',   // JSON array of interest tags, e.g. '["Networking","Tech"]'
     ];
     foreach ( $lead_fields as $key => $type ) {
         register_post_meta( 'aba_warm_lead', $key, [
@@ -321,6 +325,9 @@ function aba_register_graphql_meta_fields() {
         'leadCompany'     => [ 'type' => 'String',  'key' => 'lead_company' ],
         'assignedTo'      => [ 'type' => 'Int',     'key' => 'lead_assigned_to' ],
         'followUpDate'    => [ 'type' => 'String',  'key' => 'lead_follow_up_date' ],
+        'leadScore'       => [ 'type' => 'Int',     'key' => 'lead_score' ],
+        'leadVisits'      => [ 'type' => 'Int',     'key' => 'lead_visits' ],
+        'leadEventsAttended' => [ 'type' => 'Int',  'key' => 'lead_events_attended' ],
     ];
     foreach ( $lead_graphql as $field_name => $config ) {
         register_graphql_field( 'WarmLead', $field_name, [
@@ -335,6 +342,23 @@ function aba_register_graphql_meta_fields() {
             },
         ] );
     }
+
+    // leadInterests — stored as JSON array string, exposed as [String]
+    register_graphql_field( 'WarmLead', 'leadInterests', [
+        'type'        => [ 'list_of' => 'String' ],
+        'description' => 'Warm Lead meta: lead_interests (JSON array of interest tags)',
+        'resolve'     => function( $post ) {
+            if ( ! current_user_can( 'manage_options' ) && ! current_user_can( 'aba_manager' ) ) {
+                return null;
+            }
+            $raw = get_post_meta( $post->databaseId, 'lead_interests', true );
+            if ( empty( $raw ) ) {
+                return [];
+            }
+            $decoded = json_decode( $raw, true );
+            return is_array( $decoded ) ? $decoded : [];
+        },
+    ] );
 }
 
 
