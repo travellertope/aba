@@ -8,9 +8,9 @@ import {
   Mail,
   Phone,
   Building2,
-  Linkedin,
+  Link,
   Share2,
-  Facebook,
+  Globe,
 } from "lucide-react";
 
 /* ─── colour tokens ─── */
@@ -329,9 +329,9 @@ export default function DirectoryUI() {
               &copy; 2025 African Business Association. All rights reserved. | Powered by MaineStream Consulting.
             </p>
             <div style={{ display: "flex", gap: 16 }}>
-              <Linkedin style={{ width: 18, height: 18, color: "#6b7280", cursor: "pointer" }} />
+              <Link style={{ width: 18, height: 18, color: "#6b7280", cursor: "pointer" }} />
               <Share2 style={{ width: 18, height: 18, color: "#6b7280", cursor: "pointer" }} />
-              <Facebook style={{ width: 18, height: 18, color: "#6b7280", cursor: "pointer" }} />
+              <Globe style={{ width: 18, height: 18, color: "#6b7280", cursor: "pointer" }} />
             </div>
           </div>
         </div>
