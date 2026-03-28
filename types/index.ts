@@ -152,6 +152,10 @@ export interface WarmLead extends WPNode {
   leadCompany: string | null;
   assignedTo: number | null;
   followUpDate: string | null;
+  leadScore: number | null;
+  leadVisits: number | null;
+  leadEventsAttended: number | null;
+  leadInterests: string[] | null;
 }
 
 // ── GraphQL response wrappers ─────────────────────────────
