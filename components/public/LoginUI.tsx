@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { signIn } from "next-auth/react";
 import { Building2 } from "lucide-react";
 
 /* ─── colour tokens ─── */
@@ -9,6 +10,28 @@ const gold = "#d4a843";
 
 /* ─── component ─── */
 export default function LoginUI() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const result = await signIn("credentials", {
+      username: email,
+      password,
+      redirect: false,
+    });
+    setLoading(false);
+    if (result?.error) {
+      setError("Invalid email or password. Please try again.");
+    } else {
+      window.location.href = "/portal/dashboard";
+    }
+  }
+
   return (
     <div
       style={{
@@ -65,7 +88,8 @@ export default function LoginUI() {
       </p>
 
       {/* ─── login card ─── */}
-      <div
+      <form
+        onSubmit={handleSubmit}
         style={{
           width: "100%",
           maxWidth: 480,
@@ -75,6 +99,21 @@ export default function LoginUI() {
           boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
         }}
       >
+        {/* error message */}
+        {error && (
+          <div style={{
+            backgroundColor: "#fef2f2",
+            border: "1px solid #fecaca",
+            borderRadius: 8,
+            padding: "0.75rem 1rem",
+            fontSize: 14,
+            color: "#dc2626",
+            marginBottom: 20,
+          }}>
+            {error}
+          </div>
+        )}
+
         {/* email field */}
         <label
           style={{
@@ -90,6 +129,9 @@ export default function LoginUI() {
         <input
           type="email"
           placeholder="your.email@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
           style={{
             width: "100%",
             borderRadius: 8,
@@ -118,6 +160,9 @@ export default function LoginUI() {
         <input
           type="password"
           placeholder="Enter your password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
           style={{
             width: "100%",
             borderRadius: 8,
@@ -171,9 +216,11 @@ export default function LoginUI() {
 
         {/* sign in button */}
         <button
+          type="submit"
+          disabled={loading}
           style={{
             width: "100%",
-            backgroundColor: gold,
+            backgroundColor: loading ? "#b8922a" : gold,
             color: "white",
             border: "none",
             borderRadius: 8,
@@ -182,10 +229,10 @@ export default function LoginUI() {
             fontWeight: 700,
             textTransform: "uppercase",
             letterSpacing: "0.08em",
-            cursor: "pointer",
+            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          Sign In
+          {loading ? "Signing in…" : "Sign In"}
         </button>
 
         {/* divider */}
@@ -211,7 +258,7 @@ export default function LoginUI() {
             Join ABA
           </a>
         </p>
-      </div>
+      </form>
     </div>
   );
 }
