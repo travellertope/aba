@@ -33,6 +33,7 @@ const navLinks = ["About", "Membership", "Events", "Directory"];
 const partnerLogos = [
   "Bradford Council",
   "University of Bradford",
+import type { Event } from '@/types';
   "Chamber of Commerce",
   "Business Growth Hub",
 ];
@@ -88,7 +89,7 @@ const membershipPlans = [
   },
 ];
 
-const events = [
+const FALLBACK_EVENTS = [
   {
     title: "Annual Gala Night",
     date: "March 15, 2026",
@@ -133,9 +134,10 @@ const resources = [
 ];
 
 /* ─── component ─── */
-export default function HomepageUI() {
+export default function HomepageUI({ events = [] }: { events?: Event[] }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const displayedEvents = events.length > 0 ? events : FALLBACK_EVENTS;
   return (
     <div className="min-h-screen bg-white text-gray-900" style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>
       {/* Responsive grid styles — guarantees 3-col layout on desktop */}
@@ -461,7 +463,7 @@ export default function HomepageUI() {
           </p>
 
           <div className="grid-3-col" style={{ marginTop: "3rem", textAlign: "left" }}>
-            {events.map((e) => (
+            {displayedEvents.map((e) => (
               <div key={e.title} style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column" }}>
                 {/* image placeholder */}
                 <div style={{ height: 176, width: "100%", background: `linear-gradient(135deg, ${navy} 0%, ${gold} 100%)` }} />
