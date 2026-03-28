@@ -4,12 +4,11 @@
 
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import type { NextAuthRequest } from 'next-auth';
 
 const ADMIN_ROLES = ['administrator', 'aba_manager', 'aba_staff'] as const;
 
-export const proxy = auth(
-  (req: NextRequest & { auth: Awaited<ReturnType<typeof auth>> | null }) => {
+export const proxy = auth((req: NextAuthRequest) => {
     const { pathname } = req.nextUrl;
     const session = req.auth;
 
@@ -38,8 +37,7 @@ export const proxy = auth(
     }
 
     return NextResponse.next();
-  },
-);
+});
 
 export const config = {
   matcher: [
