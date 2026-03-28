@@ -34,8 +34,6 @@ interface MembersResponse {
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-const ADMIN_ROLES = ["administrator", "aba_manager", "aba_staff"];
-
 function initials(firstName: string | null, lastName: string | null, name: string): string {
   if (firstName && lastName) {
     return `${firstName[0]}${lastName[0]}`.toUpperCase();
@@ -55,8 +53,22 @@ function roleLabel(abaRole: string | null): string {
       return "Manager";
     case "aba_staff":
       return "Staff";
+    case "aba_corporate":
+      return "Corporate";
+    case "aba_executive":
+      return "Executive";
+    case "aba_professional":
+      return "Professional";
+    case "aba_free_member":
+      return "Free Member";
+    case "editor":
+      return "Editor";
+    case "author":
+      return "Author";
+    case "subscriber":
+      return "Subscriber";
     default:
-      return abaRole ?? "Staff";
+      return abaRole ?? "User";
   }
 }
 
@@ -68,6 +80,16 @@ function roleColor(abaRole: string | null): string {
       return "bg-blue-600 text-white";
     case "aba_staff":
       return "bg-amber-500 text-white";
+    case "aba_corporate":
+      return "bg-purple-600 text-white";
+    case "aba_executive":
+      return "bg-indigo-500 text-white";
+    case "aba_professional":
+      return "bg-teal-500 text-white";
+    case "aba_free_member":
+      return "bg-gray-400 text-white";
+    case "editor":
+      return "bg-green-600 text-white";
     default:
       return "bg-gray-500 text-white";
   }
@@ -81,6 +103,12 @@ function rolePermissions(abaRole: string | null): string[] {
       return ["Member Management", "Event Management"];
     case "aba_staff":
       return ["Member Management", "View Reports"];
+    case "aba_corporate":
+    case "aba_executive":
+    case "aba_professional":
+      return ["Member Portal"];
+    case "editor":
+      return ["Content Management"];
     default:
       return ["View Only"];
   }
@@ -105,16 +133,12 @@ export default async function AdminSettingsPage() {
     // Graceful degradation
   }
 
-  // Filter to admin/staff users only
-  const adminUsers = allUsers.filter(
-    (u) => u.abaRole && ADMIN_ROLES.includes(u.abaRole),
-  );
-
+  // Show all registered users — the Admin Panel manages all CRM users
   // ── Map to AdminUser props ─────────────────────────────────
   // TODO: MFA status and last login are not tracked in WP yet.
   //       These fields are set to defaults until MFA integration is added.
 
-  const users: AdminUser[] = adminUsers.map((u) => {
+  const users: AdminUser[] = allUsers.map((u) => {
     const perms = rolePermissions(u.abaRole);
     return {
       initials: initials(u.firstName, u.lastName, u.name),
@@ -138,19 +162,24 @@ export default async function AdminSettingsPage() {
 
   // ── Stats ──────────────────────────────────────────────────
 
+  const adminRoles = ["administrator", "aba_manager", "aba_staff"];
+  const adminCount = allUsers.filter(
+    (u) => u.abaRole && adminRoles.includes(u.abaRole),
+  ).length;
+
   const stats: AdminStat[] = [
     {
       label: "Total Users",
       value: users.length.toString(),
-      sub: "CRM access",
+      sub: "Registered accounts",
       iconKey: "Users",
       iconColor: "text-blue-500",
       borderColor: "border-l-blue-500",
     },
     {
-      label: "Active Users",
-      value: users.filter((u) => u.status === "Active").length.toString(),
-      sub: "Currently active",
+      label: "Admin Users",
+      value: adminCount.toString(),
+      sub: "CRM access",
       iconKey: "CheckCircle2",
       iconColor: "text-green-500",
       borderColor: "border-l-green-500",
