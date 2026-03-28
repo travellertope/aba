@@ -142,9 +142,9 @@ export default function HomepageUI({ events = [] }: { events?: Event[] }) {
         title: ev.title,
         date: ev.eventDate ? new Date(ev.eventDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "TBA",
         location: ev.eventLocation ?? ev.eventLink ?? "Location TBA",
-        capacity: ev.eventSpotsRemaining != null ? \`\${ev.eventSpotsRemaining} spots left\` : "",
-        memberPrice: ev.eventMemberPrice != null ? \`£\${ev.eventMemberPrice}\` : "Free",
-        nonMemberPrice: ev.eventNonMemberPrice != null ? \`£\${ev.eventNonMemberPrice}\` : "—",
+        capacity: ev.eventSpotsRemaining != null ? `${ev.eventSpotsRemaining} spots left` : "",
+        memberPrice: ev.eventMemberPrice != null ? `£${ev.eventMemberPrice}` : "Free",
+        nonMemberPrice: ev.eventNonMemberPrice != null ? `£${ev.eventNonMemberPrice}` : "—",
       }))
     : FALLBACK_EVENTS;
   return (
