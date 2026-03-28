@@ -1,204 +1,236 @@
 // Admin CRM Dashboard — Server Component
-// Auth.js v5: auth() reads session server-side.
-// Middleware guarantees only administrator/aba_manager/aba_staff can reach this page.
+// Fetches real data from WPGraphQL and passes it to the CRMDashboardUI component.
+// Auth is enforced by the parent layout.
 
-import { auth } from '@/auth';
-import { redirect } from 'next/navigation';
-import { wpGraphQL } from '@/lib/graphql/client';
-import { GET_MEMBERS, GET_WARM_LEADS, GET_EVENTS } from '@/lib/graphql/queries';
-import type { EventsConnection, WarmLeadsConnection } from '@/types';
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { wpGraphQL } from "@/lib/graphql/client";
+import { GET_DASHBOARD_SUMMARY } from "@/lib/graphql/queries";
+import CRMDashboardUI from "@/components/admin/CRMDashboardUI";
+import type { DashboardStat, DashboardAlert, RecentMember, UpcomingEvent } from "@/components/admin/CRMDashboardUI";
+import { Users, CalendarDays, PoundSterling, TrendingUp } from "lucide-react";
+import type { PageInfo } from "@/types";
 
-interface MembersConnection {
-  nodes: {
-    id: string;
-    name: string;
-    email: string;
-    membershipTier: string | null;
-    subscriptionStatus: string | null;
-    companyName: string | null;
-  }[];
-  pageInfo: { hasNextPage: boolean; endCursor: string | null };
+// ─── GraphQL response shape ──────────────────────────────────
+
+interface DashboardMember {
+  id: string;
+  name: string;
+  email: string;
+  companyName: string | null;
+  membershipTier: string | null;
+  subscriptionStatus: string | null;
+  membershipExpires: string | null;
 }
 
-async function getAdminSummary(token: string) {
-  const [membersData, leadsData, eventsData] = await Promise.allSettled([
-    wpGraphQL<{ users: MembersConnection }>(GET_MEMBERS, { first: 100 }, token),
-    wpGraphQL<{ warmLeads: WarmLeadsConnection }>(GET_WARM_LEADS, { first: 100 }, token),
-    wpGraphQL<{ events: EventsConnection }>(GET_EVENTS, { first: 50 }),
-  ]);
-
-  return {
-    members: membersData.status === 'fulfilled' ? membersData.value.users.nodes : [],
-    leads: leadsData.status === 'fulfilled' ? leadsData.value.warmLeads.nodes : [],
-    events: eventsData.status === 'fulfilled' ? eventsData.value.events.nodes : [],
-  };
+interface DashboardEvent {
+  id: string;
+  title: string;
+  eventDate: string | null;
+  eventCapacity: number | null;
+  eventSpotsRemaining: number | null;
 }
+
+interface DashboardLead {
+  id: string;
+  title: string;
+  leadStatus: string | null;
+}
+
+interface DashboardSummaryResponse {
+  users: { nodes: DashboardMember[]; pageInfo: PageInfo };
+  events: { nodes: DashboardEvent[]; pageInfo: PageInfo };
+  warmLeads: { nodes: DashboardLead[]; pageInfo: PageInfo };
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+const TIER_BADGE_COLORS: Record<string, string> = {
+  executive: "bg-green-100 text-green-700 border border-green-300",
+  professional: "bg-amber-100 text-amber-700 border border-amber-300",
+  corporate: "bg-emerald-100 text-emerald-700 border border-emerald-300",
+  free: "bg-gray-100 text-gray-600 border border-gray-300",
+};
+
+function formatRelativeTime(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "1 day ago";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 14) return "1 week ago";
+  return `${Math.floor(diffDays / 7)} weeks ago`;
+}
+
+function formatEventDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("en-GB", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+// ─── Page ────────────────────────────────────────────────────
 
 export default async function AdminDashboardPage() {
   const session = await auth();
-  if (!session) redirect('/portal/login');
+  if (!session) redirect("/portal/login");
 
-  const { members, leads, events } = await getAdminSummary(session.accessToken);
+  // Fetch all dashboard data in a single GraphQL request
+  let members: DashboardMember[] = [];
+  let events: DashboardEvent[] = [];
+  let leads: DashboardLead[] = [];
 
-  const activeMembers = members.filter((m) => m.subscriptionStatus === 'active').length;
-  const newLeads = leads.filter((l) => l.leadStatus === 'new').length;
-  const upcomingCount = events.filter(
-    (e) => e.eventDate && new Date(e.eventDate) >= new Date(),
-  ).length;
+  try {
+    const data = await wpGraphQL<DashboardSummaryResponse>(
+      GET_DASHBOARD_SUMMARY,
+      {},
+      session.accessToken,
+    );
+    members = data.users.nodes;
+    events = data.events.nodes;
+    leads = data.warmLeads.nodes;
+  } catch {
+    // Graceful degradation — dashboard renders with empty state
+  }
 
-  const stats = [
-    { label: 'Total Members', value: members.length, sub: `${activeMembers} active` },
-    { label: 'Warm Leads', value: leads.length, sub: `${newLeads} new` },
-    { label: 'Upcoming Events', value: upcomingCount, sub: `${events.length} total` },
+  // ── Compute stats ──────────────────────────────────────────
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const activeMembers = members.filter((m) => m.subscriptionStatus === "active").length;
+
+  const upcomingEvents = events.filter(
+    (e) => e.eventDate && new Date(e.eventDate) >= now,
+  );
+
+  // Members whose membership expires within 30 days
+  const expiringThisMonth = members.filter((m) => {
+    if (!m.membershipExpires) return false;
+    const expDate = new Date(m.membershipExpires);
+    const daysUntil = (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    return daysUntil >= 0 && daysUntil <= 30;
+  });
+
+  const newLeads = leads.filter((l) => l.leadStatus === "new").length;
+
+  // ── Build props ────────────────────────────────────────────
+
+  const stats: DashboardStat[] = [
+    {
+      label: "Total Members",
+      value: members.length.toString(),
+      change: `${activeMembers} active`,
+      icon: Users,
+      iconBg: "bg-blue-900",
+      iconColor: "text-amber-400",
+    },
+    {
+      label: "Upcoming Events",
+      value: upcomingEvents.length.toString(),
+      change: `${events.length} total`,
+      icon: CalendarDays,
+      iconBg: "bg-green-600",
+      iconColor: "text-white",
+    },
+    {
+      label: "Warm Leads",
+      value: leads.length.toString(),
+      change: `${newLeads} new`,
+      icon: PoundSterling,
+      iconBg: "bg-amber-500",
+      iconColor: "text-white",
+    },
+    {
+      label: "Attendance Rate",
+      value: `${activeMembers > 0 ? Math.round((activeMembers / members.length) * 100) : 0}%`,
+      change: "Active member ratio",
+      icon: TrendingUp,
+      iconBg: "bg-purple-500",
+      iconColor: "text-white",
+    },
   ];
 
+  const alerts: DashboardAlert[] = [];
+
+  if (expiringThisMonth.length > 0) {
+    alerts.push({
+      text: `${expiringThisMonth.length} membership${expiringThisMonth.length === 1 ? "" : "s"} expiring within 30 days`,
+      borderColor: "border-l-amber-500",
+      bgColor: "bg-amber-50",
+    });
+  }
+
+  // Find events nearing capacity (>= 80% full)
+  for (const event of upcomingEvents) {
+    if (event.eventCapacity && event.eventSpotsRemaining != null) {
+      const registered = event.eventCapacity - event.eventSpotsRemaining;
+      const pct = Math.round((registered / event.eventCapacity) * 100);
+      if (pct >= 80) {
+        alerts.push({
+          text: `${event.title} ${pct}% capacity`,
+          borderColor: "border-l-blue-500",
+          bgColor: "bg-blue-50",
+        });
+      }
+    }
+  }
+
+  if (newLeads > 0) {
+    alerts.push({
+      text: `${newLeads} new warm lead${newLeads === 1 ? "" : "s"} awaiting follow-up`,
+      borderColor: "border-l-yellow-400",
+      bgColor: "bg-yellow-50",
+    });
+  }
+
+  // Recent members — last 5 sorted by expiry date as a proxy for recency
+  const recentMembers: RecentMember[] = members
+    .filter((m) => m.membershipExpires)
+    .sort(
+      (a, b) =>
+        new Date(b.membershipExpires!).getTime() -
+        new Date(a.membershipExpires!).getTime(),
+    )
+    .slice(0, 5)
+    .map((m) => {
+      const tier = m.membershipTier ?? "free";
+      const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+      return {
+        name: m.name,
+        company: m.companyName ?? "—",
+        badge: tierLabel,
+        badgeColor: TIER_BADGE_COLORS[tier] ?? TIER_BADGE_COLORS.free,
+        time: m.membershipExpires ? formatRelativeTime(m.membershipExpires) : "—",
+      };
+    });
+
+  // Upcoming events — next 3
+  const upcomingEventProps: UpcomingEvent[] = upcomingEvents
+    .sort(
+      (a, b) =>
+        new Date(a.eventDate!).getTime() - new Date(b.eventDate!).getTime(),
+    )
+    .slice(0, 3)
+    .map((e) => {
+      const capacity = e.eventCapacity ?? 0;
+      const remaining = e.eventSpotsRemaining ?? capacity;
+      const registered = capacity - remaining;
+      return {
+        name: e.title,
+        date: e.eventDate ? formatEventDate(e.eventDate) : "TBC",
+        registered: Math.max(0, registered),
+        total: capacity,
+      };
+    });
+
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            CRM & Membership Overview · Logged in as{' '}
-            <span className="font-medium">{session.user.name}</span>{' '}
-            <span className="text-slate-400">({session.user.role})</span>
-          </p>
-        </div>
-        <a href="/portal/dashboard" className="text-sm text-blue-600 hover:underline">
-          Member View
-        </a>
-      </div>
-
-      {/* Stats — replace with components/admin/StatsGrid.tsx */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {stats.map(({ label, value, sub }) => (
-          <div key={label} className="bg-white rounded-xl border border-slate-200 p-5">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</p>
-            <p className="mt-1 text-3xl font-bold text-slate-900">{value}</p>
-            <p className="text-xs text-slate-400 mt-1">{sub}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Members table — replace with components/admin/MembersTable.tsx */}
-      <div className="bg-white rounded-xl border border-slate-200">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-900">Recent Members</h2>
-          <a href="/admin/members" className="text-sm text-blue-600 hover:underline">
-            View all
-          </a>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-left">
-                <th className="px-6 py-3 font-medium text-slate-500">Name</th>
-                <th className="px-6 py-3 font-medium text-slate-500">Company</th>
-                <th className="px-6 py-3 font-medium text-slate-500">Tier</th>
-                <th className="px-6 py-3 font-medium text-slate-500">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {members.slice(0, 10).length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400">
-                    No members found.
-                  </td>
-                </tr>
-              ) : (
-                members.slice(0, 10).map((member) => (
-                  <tr key={member.id} className="hover:bg-slate-50 transition">
-                    <td className="px-6 py-3 font-medium text-slate-900">{member.name}</td>
-                    <td className="px-6 py-3 text-slate-500">{member.companyName ?? '—'}</td>
-                    <td className="px-6 py-3 capitalize text-slate-700">
-                      {member.membershipTier ?? '—'}
-                    </td>
-                    <td className="px-6 py-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          member.subscriptionStatus === 'active'
-                            ? 'bg-green-50 text-green-700'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
-                        {member.subscriptionStatus ?? 'unknown'}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Warm Leads table — replace with components/admin/LeadsTable.tsx */}
-      <div className="bg-white rounded-xl border border-slate-200">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-900">Warm Leads</h2>
-          <a href="/admin/leads" className="text-sm text-blue-600 hover:underline">
-            View all
-          </a>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-left">
-                <th className="px-6 py-3 font-medium text-slate-500">Name / Company</th>
-                <th className="px-6 py-3 font-medium text-slate-500">Source</th>
-                <th className="px-6 py-3 font-medium text-slate-500">Status</th>
-                <th className="px-6 py-3 font-medium text-slate-500">Follow Up</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {leads.slice(0, 10).length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400">
-                    No leads found.
-                  </td>
-                </tr>
-              ) : (
-                leads.slice(0, 10).map((lead) => (
-                  <tr key={lead.id} className="hover:bg-slate-50 transition">
-                    <td className="px-6 py-3">
-                      <p className="font-medium text-slate-900">{lead.title}</p>
-                      <p className="text-slate-400 text-xs">{lead.leadCompany ?? '—'}</p>
-                    </td>
-                    <td className="px-6 py-3 capitalize text-slate-500">
-                      {lead.leadSource ?? '—'}
-                    </td>
-                    <td className="px-6 py-3">
-                      <LeadStatusBadge status={lead.leadStatus} />
-                    </td>
-                    <td className="px-6 py-3 text-slate-500">
-                      {lead.followUpDate
-                        ? new Date(lead.followUpDate).toLocaleDateString('en-AU')
-                        : '—'}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LeadStatusBadge({ status }: { status: string | null }) {
-  const colors: Record<string, string> = {
-    new: 'bg-blue-50 text-blue-700',
-    contacted: 'bg-yellow-50 text-yellow-700',
-    qualified: 'bg-purple-50 text-purple-700',
-    converted: 'bg-green-50 text-green-700',
-    lost: 'bg-slate-100 text-slate-500',
-  };
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${colors[status ?? ''] ?? 'bg-slate-100 text-slate-500'}`}
-    >
-      {status ?? 'unknown'}
-    </span>
+    <CRMDashboardUI
+      stats={stats}
+      alerts={alerts}
+      recentMembers={recentMembers}
+      upcomingEvents={upcomingEventProps}
+    />
   );
 }
