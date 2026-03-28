@@ -34,8 +34,6 @@ interface MembersResponse {
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-const ADMIN_ROLES = ["administrator", "aba_manager", "aba_staff"];
-
 function initials(firstName: string | null, lastName: string | null, name: string): string {
   if (firstName && lastName) {
     return `${firstName[0]}${lastName[0]}`.toUpperCase();
@@ -56,7 +54,7 @@ function roleLabel(abaRole: string | null): string {
     case "aba_staff":
       return "Staff";
     default:
-      return abaRole ?? "Staff";
+      return abaRole ?? "User";
   }
 }
 
@@ -105,7 +103,8 @@ export default async function AdminSettingsPage() {
     // Graceful degradation
   }
 
-  // Filter to admin/staff users only
+  // Filter to admin/staff roles only — membership users are on /admin/members
+  const ADMIN_ROLES = ["administrator", "aba_manager", "aba_staff"];
   const adminUsers = allUsers.filter(
     (u) => u.abaRole && ADMIN_ROLES.includes(u.abaRole),
   );
@@ -140,7 +139,7 @@ export default async function AdminSettingsPage() {
 
   const stats: AdminStat[] = [
     {
-      label: "Total Users",
+      label: "Total Admin Users",
       value: users.length.toString(),
       sub: "CRM access",
       iconKey: "Users",

@@ -37,6 +37,11 @@ interface MembersResponse {
 
 // ─── Helpers ─────────────────────────────────────────────────
 
+// Membership-tier roles (shown on Members page)
+const MEMBER_ROLES = ["aba_free_member", "aba_professional", "aba_executive", "aba_corporate"];
+// Admin/staff roles are shown on the Admin/Settings page instead
+const ADMIN_ROLES = ["administrator", "aba_manager", "aba_staff"];
+
 const TIER_COLORS: Record<string, string> = {
   executive: "bg-amber-100 text-amber-700 border border-amber-300",
   professional: "bg-blue-100 text-blue-700 border border-blue-300",
@@ -92,7 +97,14 @@ export default async function AdminMembersPage() {
     // Graceful degradation — renders empty state
   }
 
-  const members: MemberRow[] = memberNodes.map((m) => {
+  // Show membership-role users + any user who isn't an admin/staff
+  // (subscribers, authors, etc. are treated as unassigned members)
+  const filteredNodes = memberNodes.filter((m) => {
+    if (m.abaRole && ADMIN_ROLES.includes(m.abaRole)) return false;
+    return true;
+  });
+
+  const members: MemberRow[] = filteredNodes.map((m) => {
     const tier = m.membershipTier ?? "free";
     const status = m.subscriptionStatus ?? "inactive";
 
