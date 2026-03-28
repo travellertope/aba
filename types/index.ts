@@ -188,6 +188,11 @@ export interface WarmLeadsConnection {
   pageInfo: PageInfo;
 }
 
+export interface MembersConnection {
+  nodes: Member[];
+  pageInfo: PageInfo;
+}
+
 // ── Auth / Session ────────────────────────────────────────
 
 export interface AbaSession {

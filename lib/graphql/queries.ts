@@ -217,6 +217,52 @@ export const GET_CURRENT_USER = `
   }
 `;
 
+// ── Dashboard summary (admin) ─────────────────────────────
+
+export const GET_DASHBOARD_SUMMARY = `
+  query GetDashboardSummary {
+    users(first: 500) {
+      nodes {
+        id
+        name
+        email
+        companyName
+        membershipTier
+        subscriptionStatus
+        membershipExpires
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+    events(first: 50) {
+      nodes {
+        id
+        title
+        eventDate
+        eventCapacity
+        eventSpotsRemaining
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+    warmLeads(first: 100) {
+      nodes {
+        id
+        title
+        leadStatus
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+`;
+
 // ── Members list (admin) ──────────────────────────────────
 
 export const GET_MEMBERS = `
