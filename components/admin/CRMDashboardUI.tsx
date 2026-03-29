@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -11,6 +12,7 @@ import {
   Calendar,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import MemberPanel from "./MemberPanel";
 
 // ─── Icon map (server passes string keys, client resolves to components) ──
 
@@ -62,13 +64,7 @@ export interface CRMDashboardProps {
 
 // ─── Quick Actions (static — lives entirely in the client component) ─────
 
-const quickActions = [
-  {
-    label: "Add New Member",
-    description: "Register new membership",
-    icon: UserPlus,
-    href: "/admin/members/new",
-  },
+const quickActionLinks = [
   {
     label: "Create Event",
     description: "Schedule new event",
@@ -97,6 +93,7 @@ export default function CRMDashboardUI({
   recentMembers,
   upcomingEvents,
 }: CRMDashboardProps) {
+  const [memberPanelOpen, setMemberPanelOpen] = useState(false);
   return (
     <>
       {/* Page Title */}
@@ -265,7 +262,21 @@ export default function CRMDashboardUI({
           Quick Actions
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {quickActions.map((action) => (
+          {/* Add New Member — opens off-canvas panel */}
+          <button
+            onClick={() => setMemberPanelOpen(true)}
+            className="flex flex-col items-start gap-2 rounded-xl border border-gray-200 p-4 text-left hover:border-amber-400 hover:shadow-md transition-all group"
+          >
+            <UserPlus className="w-5 h-5 text-gray-400 group-hover:text-amber-500 transition-colors" />
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                Add New Member
+              </p>
+              <p className="text-xs text-gray-500">Register new membership</p>
+            </div>
+          </button>
+
+          {quickActionLinks.map((action) => (
             <Link
               key={action.label}
               href={action.href}
@@ -282,6 +293,13 @@ export default function CRMDashboardUI({
           ))}
         </div>
       </div>
+
+      {/* ── Add Member Panel ── */}
+      <MemberPanel
+        isOpen={memberPanelOpen}
+        onClose={() => setMemberPanelOpen(false)}
+        mode="add"
+      />
     </>
   );
 }
