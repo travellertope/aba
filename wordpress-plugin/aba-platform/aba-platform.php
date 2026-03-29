@@ -545,7 +545,7 @@ function aba_register_user_graphql_fields() {
 
 
 // ============================================================
-// 6. GRAPHQL MUTATIONS — UPDATE USER PROFILE
+// 6. GRAPHQL MUTATIONS — UPDATE USER PROFILE & CREATE MEMBER
 // ============================================================
 
 add_action( 'graphql_register_types', 'aba_register_graphql_mutations' );
@@ -556,6 +556,7 @@ function aba_register_graphql_mutations() {
         return;
     }
 
+    // ── Update existing user profile ─────────────────────────
     register_graphql_mutation( 'updateAbaUserProfile', [
         'inputFields' => [
             'userId'             => [ 'type' => [ 'non_null' => 'Int' ] ],
@@ -597,6 +598,155 @@ function aba_register_graphql_mutations() {
             }
 
             return [ 'success' => true, 'message' => 'Profile updated successfully.' ];
+        },
+    ] );
+
+    // ── Create a new ABA member (admin only) ─────────────────
+    register_graphql_mutation( 'createAbaMember', [
+        'inputFields' => [
+            // Required
+            'firstName'        => [ 'type' => [ 'non_null' => 'String' ] ],
+            'lastName'         => [ 'type' => [ 'non_null' => 'String' ] ],
+            'email'            => [ 'type' => [ 'non_null' => 'String' ] ],
+            'membershipTier'   => [ 'type' => [ 'non_null' => 'String' ] ],
+            // Optional
+            'phone'            => [ 'type' => 'String' ],
+            'companyName'      => [ 'type' => 'String' ],
+            'jobTitle'         => [ 'type' => 'String' ],
+            'status'           => [ 'type' => 'String' ],   // active | pending | inactive
+            'joinDate'         => [ 'type' => 'String' ],   // ISO date string
+            'paymentMethod'    => [ 'type' => 'String' ],
+            'notes'            => [ 'type' => 'String' ],
+            'sendWelcomeEmail' => [ 'type' => 'Boolean' ],
+        ],
+        'outputFields' => [
+            'success' => [ 'type' => 'Boolean' ],
+            'message' => [ 'type' => 'String' ],
+            'userId'  => [ 'type' => 'Int' ],
+        ],
+        'mutateAndGetPayload' => function( $input ) {
+
+            // ── Auth check — administrators only ──────────────
+            if ( ! current_user_can( 'manage_options' ) ) {
+                return [ 'success' => false, 'message' => 'Permission denied. Administrator role required.', 'userId' => null ];
+            }
+
+            // ── Sanitise inputs ───────────────────────────────
+            $first_name     = sanitize_text_field( $input['firstName'] );
+            $last_name      = sanitize_text_field( $input['lastName'] );
+            $email          = sanitize_email( $input['email'] );
+            $tier           = sanitize_text_field( strtolower( $input['membershipTier'] ) );
+            $phone          = sanitize_text_field( $input['phone'] ?? '' );
+            $company        = sanitize_text_field( $input['companyName'] ?? '' );
+            $job_title      = sanitize_text_field( $input['jobTitle'] ?? '' );
+            $status         = sanitize_text_field( strtolower( $input['status'] ?? 'active' ) );
+            $join_date      = sanitize_text_field( $input['joinDate'] ?? date( 'Y-m-d' ) );
+            $payment_method = sanitize_text_field( $input['paymentMethod'] ?? '' );
+            $notes          = sanitize_textarea_field( $input['notes'] ?? '' );
+            $send_email     = (bool) ( $input['sendWelcomeEmail'] ?? false );
+
+            // ── Validate email ────────────────────────────────
+            if ( ! is_email( $email ) ) {
+                return [ 'success' => false, 'message' => 'Invalid email address.', 'userId' => null ];
+            }
+            if ( email_exists( $email ) ) {
+                return [ 'success' => false, 'message' => 'A user with this email address already exists.', 'userId' => null ];
+            }
+
+            // ── Map tier to WP role ───────────────────────────
+            $tier_role_map = [
+                'executive'    => 'aba_executive',
+                'professional' => 'aba_professional',
+                'corporate'    => 'aba_corporate',
+                'free'         => 'aba_free_member',
+            ];
+            $wp_role = $tier_role_map[ $tier ] ?? 'aba_free_member';
+
+            // ── Generate username from email ──────────────────
+            $username_base = sanitize_user( strstr( $email, '@', true ), true );
+            $username      = $username_base;
+            $suffix        = 1;
+            while ( username_exists( $username ) ) {
+                $username = $username_base . $suffix;
+                $suffix++;
+            }
+
+            // ── Create the WP user (suppress default emails) ──
+            // Passing an empty string to wp_insert_user prevents
+            // wp_new_user_notification() from being called automatically.
+            add_filter( 'wp_send_new_user_notification_to_admin', '__return_false' );
+            add_filter( 'wp_send_new_user_notification_to_user',  '__return_false' );
+
+            $user_id = wp_insert_user( [
+                'user_login'   => $username,
+                'user_email'   => $email,
+                'user_pass'    => wp_generate_password( 24, true, true ),
+                'first_name'   => $first_name,
+                'last_name'    => $last_name,
+                'display_name' => "{$first_name} {$last_name}",
+                'role'         => $wp_role,
+            ] );
+
+            remove_filter( 'wp_send_new_user_notification_to_admin', '__return_false' );
+            remove_filter( 'wp_send_new_user_notification_to_user',  '__return_false' );
+
+            if ( is_wp_error( $user_id ) ) {
+                return [ 'success' => false, 'message' => $user_id->get_error_message(), 'userId' => null ];
+            }
+
+            // ── Write all ABA user meta ───────────────────────
+            update_user_meta( $user_id, 'aba_membership_tier',     $tier );
+            update_user_meta( $user_id, 'aba_subscription_status', $status );
+            update_user_meta( $user_id, 'aba_membership_expires',  '' );  // set by payment flow later
+
+            if ( $phone )          update_user_meta( $user_id, 'aba_phone',        $phone );
+            if ( $company )        update_user_meta( $user_id, 'aba_company_name', $company );
+            if ( $job_title )      update_user_meta( $user_id, 'aba_job_title',    $job_title );
+            if ( $notes )          update_user_meta( $user_id, 'aba_bio',          $notes );
+            if ( $payment_method ) update_user_meta( $user_id, 'aba_payment_method', $payment_method );
+            if ( $join_date )      update_user_meta( $user_id, 'aba_join_date',    $join_date );
+
+            // ── Send ABA-branded welcome email (optional) ─────
+            if ( $send_email ) {
+                // Generate a one-time password reset link so the member can
+                // set their own password on first login — we never expose the
+                // hashed password we generated above.
+                $reset_key  = get_password_reset_key( get_user_by( 'id', $user_id ) );
+                $reset_url  = ! is_wp_error( $reset_key )
+                    ? network_site_url( "wp-login.php?action=rp&key={$reset_key}&login=" . rawurlencode( $username ) )
+                    : wp_login_url();
+
+                $tier_label = ucfirst( $tier );
+                $site_name  = get_bloginfo( 'name' );
+                $portal_url = defined( 'ABA_PORTAL_URL' ) ? ABA_PORTAL_URL : home_url( '/portal' );
+
+                $subject = "Welcome to {$site_name} — Your {$tier_label} Membership";
+
+                $message  = "Dear {$first_name},\n\n";
+                $message .= "Your {$tier_label} membership with the African Business Association has been activated.\n\n";
+                $message .= "--- YOUR ACCOUNT DETAILS ---\n";
+                $message .= "Name:       {$first_name} {$last_name}\n";
+                $message .= "Email:      {$email}\n";
+                $message .= "Membership: {$tier_label}\n";
+                $message .= "Join Date:  {$join_date}\n\n";
+                $message .= "--- GET STARTED ---\n";
+                $message .= "Set your password and access your member portal using the link below:\n";
+                $message .= "{$reset_url}\n\n";
+                $message .= "Once logged in, visit your member dashboard at:\n";
+                $message .= "{$portal_url}\n\n";
+                $message .= "If you have any questions, please contact us at " . get_option( 'admin_email' ) . ".\n\n";
+                $message .= "Best regards,\nThe {$site_name} Team";
+
+                $headers = [ 'Content-Type: text/plain; charset=UTF-8' ];
+
+                wp_mail( $email, $subject, $message, $headers );
+            }
+
+            return [
+                'success' => true,
+                'message' => "Member {$first_name} {$last_name} created successfully.",
+                'userId'  => $user_id,
+            ];
         },
     ] );
 }

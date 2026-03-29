@@ -94,6 +94,34 @@ export default function CRMDashboardUI({
   upcomingEvents,
 }: CRMDashboardProps) {
   const [memberPanelOpen, setMemberPanelOpen] = useState(false);
+
+  async function handleCreateMember(data: import("./MemberPanel").MemberFormData) {
+    const res = await fetch("/api/admin/members", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        membershipTier: data.tier,
+        phone: data.phone || undefined,
+        companyName: data.company || undefined,
+        jobTitle: data.jobTitle || undefined,
+        status: data.status.toLowerCase(),
+        joinDate: data.joinDate,
+        paymentMethod: data.paymentMethod || undefined,
+        notes: data.notes || undefined,
+        sendWelcomeEmail: data.sendWelcomeEmail,
+      }),
+    });
+
+    const result = await res.json();
+
+    if (!result.success) {
+      throw new Error(result.message || "Failed to create member.");
+    }
+  }
+
   return (
     <>
       {/* Page Title */}
@@ -299,6 +327,7 @@ export default function CRMDashboardUI({
         isOpen={memberPanelOpen}
         onClose={() => setMemberPanelOpen(false)}
         mode="add"
+        onSubmit={handleCreateMember}
       />
     </>
   );

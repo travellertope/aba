@@ -12,7 +12,11 @@ import {
   CalendarDays,
   FileText,
   ChevronDown,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
+
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -35,6 +39,8 @@ export interface MemberPanelProps {
   isOpen: boolean;
   onClose: () => void;
   mode: "add" | "edit";
+  /** Called with the collected form data when admin submits */
+  onSubmit?: (data: MemberFormData) => Promise<void>;
   /** Pre-filled data when editing an existing member */
   initialData?: Partial<MemberFormData>;
   /** Display name shown in the header when editing */
@@ -59,6 +65,7 @@ export default function MemberPanel({
   isOpen,
   onClose,
   mode,
+  onSubmit,
   initialData,
   memberName,
 }: MemberPanelProps) {
@@ -76,6 +83,25 @@ export default function MemberPanel({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [notes, setNotes] = useState("");
   const [sendWelcomeEmail, setSendWelcomeEmail] = useState(true);
+
+  // Submission state
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+
+  // Reset all submission state when the panel opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Small delay so state resets after slide-out animation
+      const t = setTimeout(() => {
+        setError(null);
+        setSuccess(false);
+        setIsLoading(false);
+      }, 300);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
 
   // Populate form when opening in edit mode or when initialData changes
   useEffect(() => {
@@ -110,6 +136,45 @@ export default function MemberPanel({
   }, [isOpen, initialData]);
 
   const isEdit = mode === "edit";
+
+  // ── Form submission ───────────────────────────────────────
+  async function handleSubmit() {
+    setError(null);
+
+    // Client-side validation for required fields
+    if (!firstName.trim()) return setError("First name is required.");
+    if (!lastName.trim())  return setError("Last name is required.");
+    if (!email.trim())     return setError("Email address is required.");
+    if (!tier)             return setError("Membership tier is required.");
+
+    if (!onSubmit) return;
+
+    setIsLoading(true);
+    try {
+      await onSubmit({
+        firstName,
+        lastName,
+        email,
+        phone,
+        company,
+        jobTitle,
+        tier,
+        status,
+        joinDate,
+        paymentMethod,
+        notes,
+        sendWelcomeEmail,
+      });
+      setSuccess(true);
+      // Auto-close after a brief success flash
+      setTimeout(onClose, 1200);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
 
   return (
     <>
@@ -387,6 +452,22 @@ export default function MemberPanel({
               />
             </div>
 
+            {/* Error / Success Banners */}
+            {error && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+            {success && (
+              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                <p className="text-sm text-green-700">
+                  {isEdit ? "Member updated!" : "Member created! Closing…"}
+                </p>
+              </div>
+            )}
+
             {/* Send Welcome Email Toggle */}
             {!isEdit && (
               <div className="flex items-center justify-between bg-gray-50 rounded-lg border border-gray-200 px-4 py-3">
@@ -401,6 +482,7 @@ export default function MemberPanel({
                 <button
                   type="button"
                   onClick={() => setSendWelcomeEmail(!sendWelcomeEmail)}
+                  disabled={isLoading}
                   className={`w-10 h-6 rounded-full relative shrink-0 transition-colors ${
                     sendWelcomeEmail ? "bg-amber-500" : "bg-gray-300"
                   }`}
@@ -415,22 +497,37 @@ export default function MemberPanel({
             )}
           </div>
 
+
           {/* ── Footer (sticky) ── */}
           <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-6 py-4 flex items-center justify-between gap-3">
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+              disabled={isLoading}
+              className="px-5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <div className="flex items-center gap-2">
               {!isEdit && (
-                <button className="px-5 py-2.5 rounded-lg border border-[#1a2332] bg-white text-sm font-medium text-[#1a2332] hover:bg-gray-50 transition-colors">
+                <button
+                  onClick={onClose}
+                  disabled={isLoading}
+                  className="px-5 py-2.5 rounded-lg border border-[#1a2332] bg-white text-sm font-medium text-[#1a2332] hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
                   Save as Draft
                 </button>
               )}
-              <button className="px-5 py-2.5 rounded-lg bg-[#1a2332] text-white text-sm font-medium hover:bg-[#243044] transition-colors flex items-center gap-2">
-                {isEdit ? (
+              <button
+                onClick={handleSubmit}
+                disabled={isLoading || success}
+                className="px-5 py-2.5 rounded-lg bg-[#1a2332] text-white text-sm font-medium hover:bg-[#243044] transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {isEdit ? "Updating…" : "Adding…"}
+                  </>
+                ) : isEdit ? (
                   <>
                     <Pencil className="w-4 h-4" />
                     Update Member
@@ -444,6 +541,7 @@ export default function MemberPanel({
               </button>
             </div>
           </div>
+
         </div>
       </div>
     </>

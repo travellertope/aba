@@ -63,3 +63,62 @@ export const UPDATE_USER_PROFILE = `
     }
   }
 `;
+
+// ── Member Management (admin only) ───────────────────────
+
+export const CREATE_MEMBER = `
+  mutation CreateAbaMember(
+    $firstName: String!
+    $lastName: String!
+    $email: String!
+    $membershipTier: String!
+    $phone: String
+    $companyName: String
+    $jobTitle: String
+    $status: String
+    $joinDate: String
+    $paymentMethod: String
+    $notes: String
+    $sendWelcomeEmail: Boolean
+  ) {
+    createAbaMember(input: {
+      firstName: $firstName
+      lastName: $lastName
+      email: $email
+      membershipTier: $membershipTier
+      phone: $phone
+      companyName: $companyName
+      jobTitle: $jobTitle
+      status: $status
+      joinDate: $joinDate
+      paymentMethod: $paymentMethod
+      notes: $notes
+      sendWelcomeEmail: $sendWelcomeEmail
+    }) {
+      success
+      message
+      userId
+    }
+  }
+`;
+
+export const UPDATE_MEMBER_PROFILE = `
+  mutation UpdateAbaUserProfile(
+    $userId: Int!
+    $phone: String
+    $companyName: String
+    $jobTitle: String
+    $bio: String
+  ) {
+    updateAbaUserProfile(input: {
+      userId: $userId
+      phone: $phone
+      companyName: $companyName
+      jobTitle: $jobTitle
+      bio: $bio
+    }) {
+      success
+      message
+    }
+  }
+`;

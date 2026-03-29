@@ -45,6 +45,33 @@ export default function MembersUI({ members, totalCount }: MembersUIProps) {
   const [editData, setEditData] = useState<Partial<MemberFormData> | undefined>();
   const [editName, setEditName] = useState<string | undefined>();
 
+  async function handleCreateMember(data: MemberFormData) {
+    const res = await fetch("/api/admin/members", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        membershipTier: data.tier,
+        phone: data.phone || undefined,
+        companyName: data.company || undefined,
+        jobTitle: data.jobTitle || undefined,
+        status: data.status.toLowerCase(),
+        joinDate: data.joinDate,
+        paymentMethod: data.paymentMethod || undefined,
+        notes: data.notes || undefined,
+        sendWelcomeEmail: data.sendWelcomeEmail,
+      }),
+    });
+
+    const result = await res.json();
+
+    if (!result.success) {
+      throw new Error(result.message || "Failed to create member.");
+    }
+  }
+
   function openAddPanel() {
     setPanelMode("add");
     setEditData(undefined);
@@ -75,6 +102,7 @@ export default function MembersUI({ members, totalCount }: MembersUIProps) {
         isOpen={panelOpen}
         onClose={() => setPanelOpen(false)}
         mode={panelMode}
+        onSubmit={panelMode === "add" ? handleCreateMember : undefined}
         initialData={editData}
         memberName={editName}
       />
