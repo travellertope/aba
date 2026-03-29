@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Upload,
   Download,
@@ -12,7 +13,8 @@ import {
   Trash2,
   Search,
 } from "lucide-react";
-import Link from "next/link";
+import MemberPanel from "./MemberPanel";
+import type { MemberFormData } from "./MemberPanel";
 
 // ─── Props ────────────────────────────────────────────────────
 
@@ -38,8 +40,45 @@ export interface MembersUIProps {
 // ─── Component ────────────────────────────────────────────────
 
 export default function MembersUI({ members, totalCount }: MembersUIProps) {
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelMode, setPanelMode] = useState<"add" | "edit">("add");
+  const [editData, setEditData] = useState<Partial<MemberFormData> | undefined>();
+  const [editName, setEditName] = useState<string | undefined>();
+
+  function openAddPanel() {
+    setPanelMode("add");
+    setEditData(undefined);
+    setEditName(undefined);
+    setPanelOpen(true);
+  }
+
+  function openEditPanel(member: MemberRow) {
+    const [firstName = "", ...rest] = member.name.split(" ");
+    const lastName = rest.join(" ");
+    setPanelMode("edit");
+    setEditData({
+      firstName,
+      lastName,
+      email: member.email,
+      phone: member.phone === "—" ? "" : member.phone,
+      company: member.company === "—" ? "" : member.company,
+      tier: member.tier,
+      status: member.status,
+    });
+    setEditName(member.name);
+    setPanelOpen(true);
+  }
+
   return (
     <>
+      <MemberPanel
+        isOpen={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        mode={panelMode}
+        initialData={editData}
+        memberName={editName}
+      />
+
       {/* Page Title Row */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -55,13 +94,13 @@ export default function MembersUI({ members, totalCount }: MembersUIProps) {
             <Upload className="w-4 h-4" />
             Import Members
           </button>
-          <Link
-            href="/admin/members/new"
+          <button
+            onClick={openAddPanel}
             className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#1a2332] text-white text-sm font-medium hover:bg-[#243044] transition-colors"
           >
             <UserPlus className="w-4 h-4" />
             Add New Member
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -254,12 +293,12 @@ export default function MembersUI({ members, totalCount }: MembersUIProps) {
                     {/* Actions */}
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
-                        <Link
-                          href={`/admin/members/${member.id}/edit`}
+                        <button
+                          onClick={() => openEditPanel(member)}
                           className="p-1.5 rounded hover:bg-blue-50 text-blue-500 transition-colors"
                         >
                           <Pencil className="w-4 h-4" />
-                        </Link>
+                        </button>
                         <button className="p-1.5 rounded hover:bg-red-50 text-red-400 transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
