@@ -1,13 +1,12 @@
-// Member Login Page
-// Uses Auth.js v5 Server Action pattern — no client-side signIn() call needed.
-// The <form action={loginAction}> posts credentials to the server action,
-// which calls signIn() and redirects on success.
-
+import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
-import { auth, signIn } from '@/auth';
-import { AuthError } from 'next-auth';
+import { Building2 } from 'lucide-react';
+import { signIn } from '@/auth';
 
-// If the user is already logged in, send them to the dashboard
+/* ─── colour tokens ─── */
+const navy = "#1a2340";
+const gold = "#d4a843";
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -20,107 +19,266 @@ export default async function LoginPage({
 
   const errorMessages: Record<string, string> = {
     CredentialsSignin: 'Invalid email or password. Please try again.',
-    Default: 'Something went wrong. Please try again.',
   };
-
-  const errorMessage = error ? (errorMessages[error] ?? errorMessages.Default) : null;
+  const errorMessage = error ? errorMessages[error] || 'Something went wrong.' : null;
 
   async function loginAction(formData: FormData) {
     'use server';
     try {
-      await signIn('credentials', {
-        username: formData.get('username') as string,
-        password: formData.get('password') as string,
-        redirectTo: callbackUrl ?? '/portal/dashboard',
-      });
-    } catch (err) {
-      // Auth.js throws a redirect on success — only catch real errors
-      if (err instanceof AuthError) {
-        redirect(`/portal/login?error=${err.type}`);
+      await signIn('credentials', formData);
+    } catch (err: any) {
+      if (err instanceof Error && err.message === 'NEXT_REDIRECT') {
+        throw err; // Ensure redirect gets thrown
       }
-      throw err; // Re-throw redirect signals
+      redirect(`/portal/login?error=CredentialsSignin&callbackUrl=${callbackUrl || ''}`);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md">
-        {/* Replace with components/portal/LoginForm.tsx from v0.dev in Step 3 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-slate-900">Member Login</h1>
-            <p className="mt-1 text-sm text-slate-500">Access your ABA member dashboard</p>
-          </div>
-
-          <form action={loginAction} className="space-y-4">
-            {errorMessage && (
-              <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                {errorMessage}
-              </div>
-            )}
-            
-            {reset === 'success' && (
-              <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-                Password updated successfully. You may now log in.
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-1">
-                Email address
-              </label>
-              <input
-                id="username"
-                name="username"
-                type="email"
-                autoComplete="email"
-                required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="you@company.com"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="rounded border-slate-300" />
-                <span className="text-slate-600">Remember me</span>
-              </label>
-              <a href="/portal/forgot-password" className="text-blue-600 hover:underline">
-                Forgot password?
-              </a>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full rounded-md bg-slate-900 text-white py-2.5 text-sm font-semibold hover:bg-slate-700 transition"
-            >
-              Sign In
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-slate-500">
-            Not a member?{' '}
-            <a href="/membership" className="text-blue-600 hover:underline font-medium">
-              Join the ABA
-            </a>
-          </p>
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor: navy,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem 1rem",
+        fontFamily: "system-ui, -apple-system, sans-serif",
+      }}
+    >
+      {/* ─── logo ─── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            border: `2px solid ${gold}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Building2 style={{ width: 22, height: 22, color: gold }} />
         </div>
+        <span
+          style={{
+            fontSize: 32,
+            fontWeight: 700,
+            color: gold,
+            letterSpacing: "0.12em",
+          }}
+        >
+          ABA
+        </span>
       </div>
+
+      {/* ─── heading ─── */}
+      <h1
+        style={{
+          fontSize: 22,
+          fontWeight: 700,
+          color: "white",
+          marginBottom: 6,
+        }}
+      >
+        Member Portal
+      </h1>
+      <p style={{ fontSize: 14, color: "#9ca3af", marginBottom: 32 }}>
+        Access your membership dashboard
+      </p>
+
+      {/* ─── login card ─── */}
+      <form
+        action={loginAction}
+        style={{
+          width: "100%",
+          maxWidth: 480,
+          backgroundColor: "white",
+          borderRadius: 16,
+          padding: "2rem 2rem 1.75rem",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+        }}
+      >
+        <input type="hidden" name="redirectTo" value={callbackUrl || '/portal/dashboard'} />
+
+        {/* error message */}
+        {errorMessage && (
+          <div style={{
+            backgroundColor: "#fef2f2",
+            border: "1px solid #fecaca",
+            borderRadius: 8,
+            padding: "0.75rem 1rem",
+            fontSize: 14,
+            color: "#dc2626",
+            marginBottom: 20,
+          }}>
+            {errorMessage}
+          </div>
+        )}
+
+        {/* success message */}
+        {reset === 'success' && (
+          <div style={{
+            backgroundColor: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            borderRadius: 8,
+            padding: "0.75rem 1rem",
+            fontSize: 14,
+            color: "#15803d",
+            marginBottom: 20,
+          }}>
+            Password updated successfully. You may now log in.
+          </div>
+        )}
+
+        {/* email field */}
+        <label
+          htmlFor="username"
+          style={{
+            display: "block",
+            fontSize: 14,
+            fontWeight: 600,
+            color: "#111827",
+            marginBottom: 6,
+          }}
+        >
+          Email Address
+        </label>
+        <input
+          id="username"
+          name="username"
+          type="email"
+          placeholder="your.email@example.com"
+          required
+          style={{
+            width: "100%",
+            borderRadius: 8,
+            border: "1px solid #d1d5db",
+            padding: "0.75rem 1rem",
+            fontSize: 14,
+            color: "#374151",
+            outline: "none",
+            boxSizing: "border-box",
+            marginBottom: 20,
+          }}
+        />
+
+        {/* password field */}
+        <label
+          htmlFor="password"
+          style={{
+            display: "block",
+            fontSize: 14,
+            fontWeight: 600,
+            color: "#111827",
+            marginBottom: 6,
+          }}
+        >
+          Password
+        </label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          placeholder="Enter your password"
+          required
+          style={{
+            width: "100%",
+            borderRadius: 8,
+            border: "1px solid #d1d5db",
+            padding: "0.75rem 1rem",
+            fontSize: 14,
+            color: "#374151",
+            outline: "none",
+            boxSizing: "border-box",
+            marginBottom: 16,
+          }}
+        />
+
+        {/* remember me + forgot password */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 20,
+          }}
+        >
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 14,
+              color: "#374151",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              style={{ width: 16, height: 16, accentColor: gold, cursor: "pointer" }}
+            />
+            Remember me
+          </label>
+          <a
+            href="/portal/forgot-password"
+            style={{
+              fontSize: 14,
+              color: gold,
+              textDecoration: "none",
+              fontWeight: 500,
+            }}
+          >
+            Forgot password?
+          </a>
+        </div>
+
+        {/* sign in button */}
+        <button
+          type="submit"
+          style={{
+            width: "100%",
+            backgroundColor: gold,
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            padding: "0.85rem",
+            fontSize: 15,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            cursor: "pointer",
+          }}
+        >
+          Sign In
+        </button>
+
+        {/* divider */}
+        <div
+          style={{
+            height: 1,
+            backgroundColor: "#e5e7eb",
+            margin: "1.5rem 0",
+          }}
+        />
+
+        {/* join link */}
+        <p style={{ textAlign: "center", fontSize: 14, color: "#6b7280" }}>
+          Not a member yet?{" "}
+          <a
+            href="/membership"
+            style={{
+              color: gold,
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
+          >
+            Join ABA
+          </a>
+        </p>
+      </form>
     </div>
   );
 }

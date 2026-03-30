@@ -12,8 +12,14 @@ export const proxy = auth((req: NextAuthRequest) => {
     const { pathname } = req.nextUrl;
     const session = req.auth;
 
-    // ── Unauthenticated users hitting /portal/* (except login) ──
-    if (!session && pathname.startsWith('/portal') && !pathname.startsWith('/portal/login')) {
+    // ── Unauthenticated users hitting /portal/* (except login/reset) ──
+    if (
+      !session && 
+      pathname.startsWith('/portal') && 
+      !pathname.startsWith('/portal/login') &&
+      !pathname.startsWith('/portal/reset-password') &&
+      !pathname.startsWith('/portal/forgot-password')
+    ) {
       const loginUrl = new URL('/portal/login', req.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(loginUrl);

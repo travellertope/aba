@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 import { wpGraphQL } from "@/lib/graphql/client";
 import { RESET_USER_PASSWORD } from "@/lib/graphql/mutations";
-import { AlertCircle } from "lucide-react";
+import { Building2 } from "lucide-react";
+
+/* ─── colour tokens ─── */
+const navy = "#1a2340";
+const gold = "#d4a843";
 
 export default async function ResetPasswordPage({
   searchParams,
@@ -10,17 +14,69 @@ export default async function ResetPasswordPage({
 }) {
   const { key, login, error } = await searchParams;
 
-  // Render generic placeholder if missing vital security search params.
+  // Render generic error placeholder if missing vital security search params.
   if (!key || !login) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-slate-900 mb-2">Invalid Reset Link</h1>
-          <p className="text-sm text-slate-500 mb-6">
+      <div
+        style={{
+          minHeight: "100vh",
+          backgroundColor: navy,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem 1rem",
+          fontFamily: "system-ui, -apple-system, sans-serif",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 480,
+            backgroundColor: "white",
+            borderRadius: 16,
+            padding: "2rem 2rem 1.75rem",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: "50%",
+                border: `2px solid #ef4444`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <span style={{ fontSize: 24, color: "#ef4444" }}>⚠</span>
+            </div>
+          </div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111827", marginBottom: 6 }}>
+            Invalid Reset Link
+          </h1>
+          <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 24 }}>
             This password reset link is missing credentials, invalid, or has expired.
           </p>
-          <a href="/portal/login" className="text-blue-600 hover:underline font-medium">
+          <a
+            href="/portal/login"
+            style={{
+              display: "inline-block",
+              width: "100%",
+              backgroundColor: navy,
+              color: "white",
+              textDecoration: "none",
+              borderRadius: 8,
+              padding: "0.85rem",
+              fontSize: 15,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}
+          >
             Return to Login
           </a>
         </div>
@@ -76,73 +132,197 @@ export default async function ResetPasswordPage({
   const errorMessage = error ? errorMessages[error] || "Something went wrong." : null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-slate-900">Set New Password</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Choose a strong password for your member portal
-            </p>
-          </div>
-
-          <form action={resetAction} className="space-y-4">
-            {errorMessage && (
-              <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-3 text-sm text-red-700">
-                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                <p>{errorMessage}</p>
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
-                New Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                minLength={8}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block text-sm font-medium text-slate-700 mb-1"
-              >
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                minLength={8}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full rounded-md bg-slate-900 text-white py-2.5 text-sm font-semibold hover:bg-slate-700 transition mt-4"
-            >
-              Update Password
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-slate-500">
-            Remembered your password?{" "}
-            <a href="/portal/login" className="text-blue-600 hover:underline font-medium">
-              Return to Login
-            </a>
-          </p>
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor: navy,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem 1rem",
+        fontFamily: "system-ui, -apple-system, sans-serif",
+      }}
+    >
+      {/* ─── logo ─── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            border: `2px solid ${gold}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Building2 style={{ width: 22, height: 22, color: gold }} />
         </div>
+        <span
+          style={{
+            fontSize: 32,
+            fontWeight: 700,
+            color: gold,
+            letterSpacing: "0.12em",
+          }}
+        >
+          ABA
+        </span>
       </div>
+
+      {/* ─── heading ─── */}
+      <h1
+        style={{
+          fontSize: 22,
+          fontWeight: 700,
+          color: "white",
+          marginBottom: 6,
+        }}
+      >
+        Set New Password
+      </h1>
+      <p style={{ fontSize: 14, color: "#9ca3af", marginBottom: 32 }}>
+        Choose a strong password for your member portal
+      </p>
+
+      {/* ─── reset card ─── */}
+      <form
+        action={resetAction}
+        style={{
+          width: "100%",
+          maxWidth: 480,
+          backgroundColor: "white",
+          borderRadius: 16,
+          padding: "2rem 2rem 1.75rem",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+        }}
+      >
+        {/* error message */}
+        {errorMessage && (
+          <div style={{
+            backgroundColor: "#fef2f2",
+            border: "1px solid #fecaca",
+            borderRadius: 8,
+            padding: "0.75rem 1rem",
+            fontSize: 14,
+            color: "#dc2626",
+            marginBottom: 20,
+          }}>
+            {errorMessage}
+          </div>
+        )}
+
+        {/* password field */}
+        <label
+          htmlFor="password"
+          style={{
+            display: "block",
+            fontSize: 14,
+            fontWeight: 600,
+            color: "#111827",
+            marginBottom: 6,
+          }}
+        >
+          New Password
+        </label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          placeholder="••••••••"
+          required
+          minLength={8}
+          style={{
+            width: "100%",
+            borderRadius: 8,
+            border: "1px solid #d1d5db",
+            padding: "0.75rem 1rem",
+            fontSize: 14,
+            color: "#374151",
+            outline: "none",
+            boxSizing: "border-box",
+            marginBottom: 20,
+          }}
+        />
+
+        {/* confirm password field */}
+        <label
+          htmlFor="confirmPassword"
+          style={{
+            display: "block",
+            fontSize: 14,
+            fontWeight: 600,
+            color: "#111827",
+            marginBottom: 6,
+          }}
+        >
+          Confirm Password
+        </label>
+        <input
+          id="confirmPassword"
+          name="confirmPassword"
+          type="password"
+          placeholder="••••••••"
+          required
+          minLength={8}
+          style={{
+            width: "100%",
+            borderRadius: 8,
+            border: "1px solid #d1d5db",
+            padding: "0.75rem 1rem",
+            fontSize: 14,
+            color: "#374151",
+            outline: "none",
+            boxSizing: "border-box",
+            marginBottom: 24,
+          }}
+        />
+
+        {/* reset button */}
+        <button
+          type="submit"
+          style={{
+            width: "100%",
+            backgroundColor: gold,
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            padding: "0.85rem",
+            fontSize: 15,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            cursor: "pointer",
+          }}
+        >
+          Update Password
+        </button>
+
+        {/* divider */}
+        <div
+          style={{
+            height: 1,
+            backgroundColor: "#e5e7eb",
+            margin: "1.5rem 0",
+          }}
+        />
+
+        {/* return link */}
+        <p style={{ textAlign: "center", fontSize: 14, color: "#6b7280" }}>
+          Remembered your password?{" "}
+          <a
+            href="/portal/login"
+            style={{
+              color: gold,
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
+          >
+            Return to Login
+          </a>
+        </p>
+      </form>
     </div>
   );
 }
