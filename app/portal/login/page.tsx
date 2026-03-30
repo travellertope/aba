@@ -152,6 +152,7 @@ export default async function LoginPage({
           type="email"
           placeholder="your.email@example.com"
           required
+          maxLength={64}
           style={{
             width: "100%",
             borderRadius: 8,
@@ -184,6 +185,7 @@ export default async function LoginPage({
           type="password"
           placeholder="Enter your password"
           required
+          maxLength={64}
           style={{
             width: "100%",
             borderRadius: 8,

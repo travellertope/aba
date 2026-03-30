@@ -9,7 +9,7 @@ import Credentials from 'next-auth/providers/credentials';
 import { LOGIN_MUTATION } from '@/lib/graphql/mutations';
 import type { AbaRole, MembershipTier, SubscriptionStatus } from '@/types';
 
-const WP_GRAPHQL_URL = process.env.NEXT_PUBLIC_WP_GRAPHQL_URL!;
+const WP_GRAPHQL_URL = process.env.WP_GRAPHQL_URL!;
 
 // ── Extend the built-in session/token types ───────────────
 declare module 'next-auth' {

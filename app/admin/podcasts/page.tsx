@@ -165,7 +165,7 @@ export default async function AdminPodcastsPage() {
 
   // ── RSS Feeds ──────────────────────────────────────────────
 
-  const wpUrl = process.env.NEXT_PUBLIC_WP_GRAPHQL_URL?.replace("/graphql", "") ?? "";
+  const wpUrl = process.env.WP_GRAPHQL_URL?.replace("/graphql", "") ?? "";
 
   const rssFeeds: RssFeed[] = wpUrl
     ? [

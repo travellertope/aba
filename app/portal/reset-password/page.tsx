@@ -233,6 +233,7 @@ export default async function ResetPasswordPage({
           placeholder="••••••••"
           required
           minLength={8}
+          maxLength={64}
           style={{
             width: "100%",
             borderRadius: 8,
@@ -266,6 +267,7 @@ export default async function ResetPasswordPage({
           placeholder="••••••••"
           required
           minLength={8}
+          maxLength={64}
           style={{
             width: "100%",
             borderRadius: 8,

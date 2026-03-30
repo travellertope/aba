@@ -4,7 +4,7 @@
 // Route Handlers. Do NOT import this in client components.
 // ============================================================
 
-const WP_GRAPHQL_URL = process.env.NEXT_PUBLIC_WP_GRAPHQL_URL!;
+const WP_GRAPHQL_URL = process.env.WP_GRAPHQL_URL!;
 
 interface GraphQLResponse<T> {
   data: T;
@@ -24,7 +24,7 @@ export async function wpGraphQL<T = unknown>(
   token?: string,
 ): Promise<T> {
   if (!WP_GRAPHQL_URL) {
-    throw new Error('NEXT_PUBLIC_WP_GRAPHQL_URL is not set in environment variables.');
+    throw new Error('WP_GRAPHQL_URL is not set in environment variables.');
   }
 
   const headers: Record<string, string> = {

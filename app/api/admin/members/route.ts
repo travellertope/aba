@@ -42,6 +42,14 @@ interface CreateMemberResponse {
 // ── Handler ──────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // SECURITY ARCHITECTURE MANDATE:
+  // Before deploying to production, MUST implement @upstash/ratelimit here.
+  // This prevents an administrator account (or a client-side infinite loop bug) 
+  // from repeatedly hammering the WP GraphQL endpoint and incurring massive "Denial of Wallet" API charges.
+  // const ip = req.ip ?? "127.0.0.1";
+  // const { success } = await ratelimit.limit(ip);
+  // if (!success) return NextResponse.json({ success: false, message: "Rate limit exceeded" }, { status: 429 });
+
   // 1. Verify the caller is an authenticated admin
   const session = await auth();
 
