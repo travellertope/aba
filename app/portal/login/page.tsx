@@ -11,12 +11,12 @@ import { AuthError } from 'next-auth';
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; error?: string; reset?: string }>;
 }) {
   const session = await auth();
   if (session) redirect('/portal/dashboard');
 
-  const { callbackUrl, error } = await searchParams;
+  const { callbackUrl, error, reset } = await searchParams;
 
   const errorMessages: Record<string, string> = {
     CredentialsSignin: 'Invalid email or password. Please try again.',
@@ -56,6 +56,12 @@ export default async function LoginPage({
             {errorMessage && (
               <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
                 {errorMessage}
+              </div>
+            )}
+            
+            {reset === 'success' && (
+              <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+                Password updated successfully. You may now log in.
               </div>
             )}
 

@@ -80,6 +80,7 @@ export const CREATE_MEMBER = `
     $paymentMethod: String
     $notes: String
     $sendWelcomeEmail: Boolean
+    $frontendUrl: String
   ) {
     createAbaMember(input: {
       firstName: $firstName
@@ -94,6 +95,7 @@ export const CREATE_MEMBER = `
       paymentMethod: $paymentMethod
       notes: $notes
       sendWelcomeEmail: $sendWelcomeEmail
+      frontendUrl: $frontendUrl
     }) {
       success
       message
@@ -119,6 +121,25 @@ export const UPDATE_MEMBER_PROFILE = `
     }) {
       success
       message
+    }
+  }
+`;
+
+export const RESET_USER_PASSWORD = `
+  mutation ResetUserPassword(
+    $key: String!
+    $login: String!
+    $password: String!
+  ) {
+    resetUserPassword(input: {
+      key: $key
+      login: $login
+      password: $password
+    }) {
+      user {
+        id
+        email
+      }
     }
   }
 `;

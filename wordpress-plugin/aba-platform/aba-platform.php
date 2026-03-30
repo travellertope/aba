@@ -618,6 +618,7 @@ function aba_register_graphql_mutations() {
             'paymentMethod'    => [ 'type' => 'String' ],
             'notes'            => [ 'type' => 'String' ],
             'sendWelcomeEmail' => [ 'type' => 'Boolean' ],
+            'frontendUrl'      => [ 'type' => 'String' ],
         ],
         'outputFields' => [
             'success' => [ 'type' => 'Boolean' ],
@@ -644,6 +645,7 @@ function aba_register_graphql_mutations() {
             $payment_method = sanitize_text_field( $input['paymentMethod'] ?? '' );
             $notes          = sanitize_textarea_field( $input['notes'] ?? '' );
             $send_email     = (bool) ( $input['sendWelcomeEmail'] ?? false );
+            $frontend_url   = sanitize_text_field( $input['frontendUrl'] ?? '' );
 
             // ── Validate email ────────────────────────────────
             if ( ! is_email( $email ) ) {
@@ -712,13 +714,16 @@ function aba_register_graphql_mutations() {
                 // set their own password on first login — we never expose the
                 // hashed password we generated above.
                 $reset_key  = get_password_reset_key( get_user_by( 'id', $user_id ) );
+                
+                $base_url   = rtrim( $frontend_url ?: network_site_url(), '/' );
+                
                 $reset_url  = ! is_wp_error( $reset_key )
-                    ? network_site_url( "wp-login.php?action=rp&key={$reset_key}&login=" . rawurlencode( $username ) )
-                    : wp_login_url();
+                    ? "{$base_url}/portal/reset-password?key={$reset_key}&login=" . rawurlencode( $username )
+                    : "{$base_url}/portal/login";
 
                 $tier_label = ucfirst( $tier );
                 $site_name  = get_bloginfo( 'name' );
-                $portal_url = defined( 'ABA_PORTAL_URL' ) ? ABA_PORTAL_URL : home_url( '/portal' );
+                $portal_url = "{$base_url}/portal/login";
 
                 $subject = "Welcome to {$site_name} — Your {$tier_label} Membership";
 

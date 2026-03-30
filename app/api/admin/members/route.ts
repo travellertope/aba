@@ -100,6 +100,7 @@ export async function POST(req: NextRequest) {
         paymentMethod: input.paymentMethod?.trim() || undefined,
         notes: input.notes?.trim() || undefined,
         sendWelcomeEmail: input.sendWelcomeEmail ?? false,
+        frontendUrl: req.nextUrl.origin,
       },
       session.accessToken,
     );
