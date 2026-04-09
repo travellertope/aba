@@ -76,13 +76,26 @@ async function wpLogin(username: string, password: string): Promise<WPLoginRespo
       cache: 'no-store',
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`[wpLogin] HTTP ${res.status} from WordPress GraphQL`);
+      return null;
+    }
 
     const json = await res.json();
-    if (json.errors?.length || !json.data?.login) return null;
+
+    if (json.errors?.length) {
+      console.error('[wpLogin] GraphQL errors:', JSON.stringify(json.errors));
+      return null;
+    }
+
+    if (!json.data?.login) {
+      console.error('[wpLogin] No login data returned:', JSON.stringify(json.data));
+      return null;
+    }
 
     return json.data.login;
-  } catch {
+  } catch (e) {
+    console.error('[wpLogin] Network/parse error:', e);
     return null;
   }
 }

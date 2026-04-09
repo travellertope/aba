@@ -1,7 +1,7 @@
-import { auth } from '@/auth';
+import { auth, signIn } from '@/auth';
 import { redirect } from 'next/navigation';
 import { Building2 } from 'lucide-react';
-import { signIn } from '@/auth';
+import { AuthError } from 'next-auth';
 
 /* ─── colour tokens ─── */
 const navy = "#1a2340";
@@ -26,11 +26,11 @@ export default async function LoginPage({
     'use server';
     try {
       await signIn('credentials', formData);
-    } catch (err: any) {
-      if (err instanceof Error && err.message === 'NEXT_REDIRECT') {
-        throw err; // Ensure redirect gets thrown
+    } catch (err) {
+      if (err instanceof AuthError) {
+        redirect(`/portal/login?error=${err.type}&callbackUrl=${callbackUrl || ''}`);
       }
-      redirect(`/portal/login?error=CredentialsSignin&callbackUrl=${callbackUrl || ''}`);
+      throw err; // Re-throw Next.js redirect signals
     }
   }
 
