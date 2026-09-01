@@ -36,6 +36,16 @@ export const proxy = auth((req: NextAuthRequest) => {
       return NextResponse.next();
     }
 
+    // ── Any other host (the main CRM domain) never serves pay-only routes ──
+    // Keeps the two experiences fully separated in both directions: pay
+    // routes don't leak onto the CRM domain, CRM routes don't leak onto pay.
+    // Only enforced once PAY_HOSTNAME is actually configured, so local dev
+    // (where there's no separate pay domain to speak of) isn't locked out
+    // of testing the pay routes at localhost.
+    if (payHostname && PAY_ONLY_PATH_PREFIXES.some((p) => pathname.startsWith(p))) {
+      return NextResponse.redirect(new URL('/membership', req.url));
+    }
+
     // ── Unauthenticated users hitting /portal/* (except login/reset) ──
     if (
       !session && 
