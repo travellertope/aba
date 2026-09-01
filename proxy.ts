@@ -8,9 +8,33 @@ import type { NextAuthRequest } from 'next-auth';
 
 const ADMIN_ROLES = ['administrator', 'aba_manager', 'aba_staff'] as const;
 
+// app/(pay)/* routes — the only ones pay.[domain] should ever serve.
+// Keep this in sync with the actual folders under app/(pay)/.
+const PAY_ONLY_PATH_PREFIXES = ['/register', '/login', '/dashboard', '/auth', '/api/webhooks/stripe'];
+
 export const proxy = auth((req: NextAuthRequest) => {
     const { pathname } = req.nextUrl;
     const session = req.auth;
+
+    // ── Host-based gating for the standalone payments deployment ──
+    // This repo is a single Next.js app serving multiple domains: the main
+    // ABA site AND pay.[domain]. Without this check, pay.[domain] would
+    // happily serve /admin, /portal, the marketing site — everything —
+    // since a route group like app/(pay)/ only organizes code, it doesn't
+    // restrict which hostname can reach a route.
+    const host = req.headers.get('host') ?? '';
+    const payHostname = process.env.PAY_HOSTNAME;
+
+    if (payHostname && host.startsWith(payHostname)) {
+      const isPayRoute = pathname === '/' || PAY_ONLY_PATH_PREFIXES.some((p) => pathname.startsWith(p));
+      if (!isPayRoute) {
+        return NextResponse.redirect(new URL('/register', req.url));
+      }
+      if (pathname === '/') {
+        return NextResponse.redirect(new URL('/register', req.url));
+      }
+      return NextResponse.next();
+    }
 
     // ── Unauthenticated users hitting /portal/* (except login/reset) ──
     if (
@@ -47,8 +71,9 @@ export const proxy = auth((req: NextAuthRequest) => {
 
 export const config = {
   matcher: [
-    // Match /portal/* and /admin/* but skip Next.js internals and static files
-    '/portal/((?!_next|favicon.ico).*)',
-    '/admin/((?!_next|favicon.ico).*)',
+    // Every path except Next.js internals and files with an extension
+    // (static assets) — needed so the pay-host gating above can catch
+    // requests to /, /about, /admin, etc., not just /portal and /admin.
+    '/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)',
   ],
 };
