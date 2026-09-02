@@ -16,7 +16,7 @@ export const TIER_CONFIG: Record<PayMembershipTier, MembershipTierConfig> = {
     description: 'For intending entrepreneurs, start-ups, and professionals.',
     eligibility: 'Start-ups & professionals',
     prices: {
-      // Monthly billing disabled for this tier — yearly only.
+      monthly: { amountPence: 800, label: '£8/month' },
       yearly: { amountPence: 9000, label: '£90/year' },
     },
   },
@@ -46,6 +46,7 @@ export const TIER_CONFIG: Record<PayMembershipTier, MembershipTierConfig> = {
 // Set these once the Products/Prices are created in Stripe.
 const PRICE_ID_ENV: Record<PayMembershipTier, Partial<Record<BillingInterval, string | undefined>>> = {
   individual: {
+    monthly: process.env.STRIPE_PRICE_INDIVIDUAL_MONTHLY,
     yearly: process.env.STRIPE_PRICE_INDIVIDUAL_YEARLY,
   },
   sme: {
