@@ -54,6 +54,8 @@ export interface MembershipTierConfig {
   id: PayMembershipTier;
   name: string;
   description: string;
+  /** Short factual eligibility line shown on the tier picker, e.g. "1-20 employees". */
+  eligibility: string;
   prices: Partial<Record<BillingInterval, { amountPence: number; label: string }>>;
 }
 
