@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { checkRateLimit } from '@/lib/pay/rate-limit';
+import { getAppOrigin } from '@/lib/pay/origin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export interface LoginActionState {
@@ -29,18 +30,24 @@ export async function sendMagicLink(
     return { error: 'Please enter a valid email address.', sent: false };
   }
 
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${headerList.get('host')}`;
-  const supabase = await createSupabaseServerClient();
+  try {
+    const origin = getAppOrigin(headerList.get('host'));
+    const supabase = await createSupabaseServerClient();
 
-  const { error } = await supabase.auth.signInWithOtp({
-    email: parsed.data,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback`,
-      shouldCreateUser: false,
-    },
-  });
+    const { error } = await supabase.auth.signInWithOtp({
+      email: parsed.data,
+      options: {
+        emailRedirectTo: `${origin}/auth/callback`,
+        shouldCreateUser: false,
+      },
+    });
 
-  // Always report success to avoid leaking which emails have an account.
-  if (error) console.error('[sendMagicLink] Supabase error:', error.message);
+    // Always report success to avoid leaking which emails have an account.
+    if (error) console.error('[sendMagicLink] Supabase error:', error.message);
+  } catch (err) {
+    console.error('[sendMagicLink] Failed:', err);
+    return { error: 'Something went wrong. Please try again shortly.', sent: false };
+  }
+
   return { error: null, sent: true };
 }

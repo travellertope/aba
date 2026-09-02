@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import type Stripe from 'stripe';
-import { stripe } from '@/lib/stripe/server';
+import { getStripeClient } from '@/lib/stripe/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import type { PayMembershipStatus } from '@/types/pay';
 
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   let event: Stripe.Event;
   try {
     if (!signature) throw new Error('Missing stripe-signature header');
-    event = stripe.webhooks.constructEvent(rawBody, signature, WEBHOOK_SECRET);
+    event = getStripeClient().webhooks.constructEvent(rawBody, signature, WEBHOOK_SECRET);
   } catch (err) {
     console.error('[stripe webhook] Signature verification failed:', err);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+        const subscription = await getStripeClient().subscriptions.retrieve(session.subscription as string);
         const email = session.customer_details?.email;
         if (!email) break;
 
