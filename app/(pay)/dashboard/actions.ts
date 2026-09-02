@@ -2,7 +2,7 @@
 
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { stripe } from '@/lib/stripe/server';
+import { getStripeClient } from '@/lib/stripe/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export async function openBillingPortal() {
@@ -25,7 +25,7 @@ export async function openBillingPortal() {
   const headerList = await headers();
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${headerList.get('host')}`;
 
-  const session = await stripe.billingPortal.sessions.create({
+  const session = await getStripeClient().billingPortal.sessions.create({
     customer: member.stripe_customer_id,
     return_url: `${origin}/dashboard`,
   });
