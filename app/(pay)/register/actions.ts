@@ -29,7 +29,6 @@ export async function registerAndCheckout(
   const raw = {
     firstName: formData.get('firstName'),
     lastName: formData.get('lastName'),
-    dateOfBirth: formData.get('dateOfBirth'),
     phone: formData.get('phone'),
     email: formData.get('email'),
     businessName: formData.get('businessName'),
@@ -70,7 +69,6 @@ export async function registerAndCheckout(
         {
           first_name: data.firstName,
           last_name: data.lastName,
-          date_of_birth: data.dateOfBirth || null,
           phone: data.phone,
           email: data.email,
           business_name: data.businessName || null,

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type Stripe from 'stripe';
 import { getStripeClient } from '@/lib/stripe/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { notifyAdminOfRegistration } from '@/lib/email/notify-admin';
 import type { PayMembershipStatus } from '@/types/pay';
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
         const authUserId = await getOrCreateAuthUser(supabase, email);
         const periodEnd = subscription.items.data[0]?.current_period_end;
 
-        await supabase
+        const { data: updatedMember } = await supabase
           .from('members')
           .update({
             auth_user_id: authUserId,
@@ -84,7 +85,23 @@ export async function POST(request: NextRequest) {
             membership_status: mapSubscriptionStatus(subscription.status),
             membership_expires_at: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
           })
-          .eq('id', memberId);
+          .eq('id', memberId)
+          .select('first_name, last_name, email, phone, business_name, membership_tier, billing_interval')
+          .single();
+
+        if (updatedMember) {
+          // Best-effort — never let an email failure affect the webhook's
+          // 200 response, the member's payment already succeeded.
+          await notifyAdminOfRegistration({
+            firstName: updatedMember.first_name,
+            lastName: updatedMember.last_name,
+            email: updatedMember.email,
+            phone: updatedMember.phone,
+            businessName: updatedMember.business_name,
+            tier: updatedMember.membership_tier,
+            interval: updatedMember.billing_interval,
+          });
+        }
         break;
       }
 

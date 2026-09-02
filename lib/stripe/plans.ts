@@ -12,17 +12,19 @@ import type { BillingInterval, MembershipTierConfig, PayMembershipTier } from '@
 export const TIER_CONFIG: Record<PayMembershipTier, MembershipTierConfig> = {
   individual: {
     id: 'individual',
-    name: 'Individual / Start-up Membership',
+    name: 'Individual Membership',
     description: 'For intending entrepreneurs, start-ups, and professionals.',
+    eligibility: 'Start-ups & professionals',
     prices: {
-      monthly: { amountPence: 800, label: '£8/month' },
+      // Monthly billing disabled for this tier — yearly only.
       yearly: { amountPence: 9000, label: '£90/year' },
     },
   },
   sme: {
     id: 'sme',
-    name: 'Small and Medium Enterprises Membership',
+    name: 'SME Membership',
     description: 'For entrepreneurs with one+ year in business, or 1–20 employees.',
+    eligibility: '1–20 employees',
     prices: {
       monthly: { amountPence: 2500, label: '£25/month' },
       yearly: { amountPence: 30000, label: '£300/year' },
@@ -30,8 +32,9 @@ export const TIER_CONFIG: Record<PayMembershipTier, MembershipTierConfig> = {
   },
   corporate: {
     id: 'corporate',
-    name: 'Corporate Businesses and Organisations Membership',
+    name: 'Corporate Membership',
     description: 'For corporate, government and partner organisations (10+ employees).',
+    eligibility: '10+ employees',
     prices: {
       // Corporate is a recurring annual subscription only — no monthly option.
       yearly: { amountPence: 100000, label: '£1,000/year' },
@@ -43,7 +46,6 @@ export const TIER_CONFIG: Record<PayMembershipTier, MembershipTierConfig> = {
 // Set these once the Products/Prices are created in Stripe.
 const PRICE_ID_ENV: Record<PayMembershipTier, Partial<Record<BillingInterval, string | undefined>>> = {
   individual: {
-    monthly: process.env.STRIPE_PRICE_INDIVIDUAL_MONTHLY,
     yearly: process.env.STRIPE_PRICE_INDIVIDUAL_YEARLY,
   },
   sme: {
