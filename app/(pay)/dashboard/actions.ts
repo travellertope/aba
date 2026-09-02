@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getStripeClient } from '@/lib/stripe/server';
+import { getAppOrigin } from '@/lib/pay/origin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export async function openBillingPortal() {
@@ -22,15 +23,22 @@ export async function openBillingPortal() {
     redirect('/dashboard?error=no-billing-account');
   }
 
-  const headerList = await headers();
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${headerList.get('host')}`;
+  let checkoutUrl: string;
+  try {
+    const headerList = await headers();
+    const origin = getAppOrigin(headerList.get('host'));
 
-  const session = await getStripeClient().billingPortal.sessions.create({
-    customer: member.stripe_customer_id,
-    return_url: `${origin}/dashboard`,
-  });
+    const session = await getStripeClient().billingPortal.sessions.create({
+      customer: member.stripe_customer_id,
+      return_url: `${origin}/dashboard`,
+    });
+    checkoutUrl = session.url;
+  } catch (err) {
+    console.error('[openBillingPortal] Failed:', err);
+    redirect('/dashboard?error=billing-portal-unavailable');
+  }
 
-  redirect(session.url);
+  redirect(checkoutUrl);
 }
 
 export async function signOut() {

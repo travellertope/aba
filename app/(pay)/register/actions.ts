@@ -6,6 +6,7 @@ import { registrationSchema } from '@/lib/pay/validation';
 import { checkRateLimit } from '@/lib/pay/rate-limit';
 import { isValidTierInterval, getStripePriceId } from '@/lib/stripe/plans';
 import { getStripeClient } from '@/lib/stripe/server';
+import { getAppOrigin } from '@/lib/pay/origin';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 export interface RegisterActionState {
@@ -91,7 +92,7 @@ export async function registerAndCheckout(
       return { error: 'Something went wrong saving your details. Please try again.' };
     }
 
-    const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${headerList.get('host')}`;
+    const origin = getAppOrigin(headerList.get('host'));
 
     const session = await getStripeClient().checkout.sessions.create({
       mode: 'subscription',
