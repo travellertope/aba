@@ -96,17 +96,7 @@ export default function RegisterForm({
           <Field label="First Name" name="firstName" required error={fieldError('firstName')} maxLength={100} />
           <Field label="Last Name" name="lastName" required error={fieldError('lastName')} maxLength={100} />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Date of Birth" name="dateOfBirth" type="date" error={fieldError('dateOfBirth')} />
-          <Field
-            label="Phone"
-            name="phone"
-            type="tel"
-            required
-            error={fieldError('phone')}
-            maxLength={32}
-          />
-        </div>
+        <Field label="Phone" name="phone" type="tel" required error={fieldError('phone')} maxLength={32} />
         <Field
           label="Email Address"
           name="email"

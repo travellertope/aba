@@ -60,7 +60,6 @@ export interface MembershipTierConfig {
 export interface RegistrationFormValues {
   firstName: string;
   lastName: string;
-  dateOfBirth: string;
   phone: string;
   email: string;
   businessName: string;
