@@ -117,6 +117,34 @@ export default function RegisterForm({
                 ))}
               </div>
             )}
+
+            <div className="mt-4 rounded-lg bg-[#f3efe4] p-4">
+              <p className="text-[11.5px] font-semibold uppercase tracking-wide text-[#746b57]">
+                What&apos;s included with {selectedConfig.name}
+              </p>
+              <ul className="mt-2.5 space-y-1.5">
+                {selectedConfig.benefits.map((benefit) =>
+                  benefit.endsWith(':') ? (
+                    <li key={benefit} className="pt-1 text-[12px] font-semibold text-[#1a2340]">
+                      {benefit}
+                    </li>
+                  ) : (
+                    <li key={benefit} className="flex items-start gap-2 text-[12.5px] text-[#1a2340]">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                        className="mt-[3px] h-3 w-3 shrink-0 text-[#b8842e]"
+                      >
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                      {benefit}
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
           </Panel>
 
           <Panel title="Your details" hint="We'll send your receipt and account access here.">
