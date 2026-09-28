@@ -21,6 +21,12 @@ $advisory_rows   = get_field( 'advisory_board' )    ?: [];
 
 .aba-mt-hero {
     position: relative;
+    /* full-bleed breakout — escapes any theme content container */
+    width: 100vw;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
     min-height: 200px;
     display: flex;
     align-items: center;
