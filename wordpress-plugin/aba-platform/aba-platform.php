@@ -935,12 +935,101 @@ function aba_load_management_team_template( string $template ): string {
 }
 
 
-// NOTE: The ACF field group for Team Members is managed entirely through the
-// WordPress admin (ACF → Field Groups). Keeping it out of code means you can
-// freely add, reorder, or remove fields without touching this file.
-// Required field names for the Next.js frontend:
-//   team_member_role, team_member_section, team_member_bio,
-//   team_member_linkedin_url, team_member_read_more_url, team_member_display_order
+// ── Seed the ACF field group into the database on first install ───────────────
+// Uses acf_import_field_group() so the group is saved as a regular DB record —
+// fully editable in ACF → Field Groups. Runs only when the group doesn't exist
+// yet, so any changes you make in the admin are never overwritten on update.
+add_action( 'acf/init', 'aba_seed_team_member_field_group' );
+
+function aba_seed_team_member_field_group(): void {
+    if ( ! function_exists( 'acf_get_field_group' ) || ! function_exists( 'acf_import_field_group' ) ) {
+        return;
+    }
+
+    // Skip if the group already exists (preserves admin edits)
+    if ( acf_get_field_group( 'group_aba_team_member' ) ) {
+        return;
+    }
+
+    acf_import_field_group( [
+        'key'                   => 'group_aba_team_member',
+        'title'                 => 'Team Member Details',
+        'active'                => true,
+        'fields'                => [
+            [
+                'key'           => 'field_team_member_role',
+                'label'         => 'Role / Title',
+                'name'          => 'team_member_role',
+                'type'          => 'text',
+                'required'      => 1,
+                'maxlength'     => 120,
+                'instructions'  => 'e.g. "Convener" or "Head, Business Development"',
+            ],
+            [
+                'key'           => 'field_team_member_section',
+                'label'         => 'Section',
+                'name'          => 'team_member_section',
+                'type'          => 'select',
+                'required'      => 1,
+                'choices'       => [
+                    'management' => 'Management Team',
+                    'advisory'   => 'Advisory Board',
+                ],
+                'default_value' => 'management',
+                'allow_null'    => 0,
+                'return_format' => 'value',
+            ],
+            [
+                'key'           => 'field_team_member_bio',
+                'label'         => 'Short Bio',
+                'name'          => 'team_member_bio',
+                'type'          => 'textarea',
+                'rows'          => 4,
+                'maxlength'     => 1000,
+            ],
+            [
+                'key'           => 'field_team_member_linkedin_url',
+                'label'         => 'LinkedIn URL',
+                'name'          => 'team_member_linkedin_url',
+                'type'          => 'url',
+                'maxlength'     => 255,
+            ],
+            [
+                'key'           => 'field_team_member_read_more_url',
+                'label'         => 'Read More URL',
+                'name'          => 'team_member_read_more_url',
+                'type'          => 'url',
+                'instructions'  => 'Link shown on the "Read More >" button (advisory board members).',
+                'maxlength'     => 255,
+            ],
+            [
+                'key'           => 'field_team_member_display_order',
+                'label'         => 'Display Order',
+                'name'          => 'team_member_display_order',
+                'type'          => 'number',
+                'default_value' => 10,
+                'min'           => 0,
+                'max'           => 9999,
+                'instructions'  => 'Lower numbers appear first within each section.',
+            ],
+        ],
+        'location' => [
+            [
+                [
+                    'param'    => 'post_type',
+                    'operator' => '==',
+                    'value'    => 'aba_team_member',
+                ],
+            ],
+        ],
+        'menu_order'            => 0,
+        'position'              => 'normal',
+        'style'                 => 'default',
+        'label_placement'       => 'top',
+        'instruction_placement' => 'label',
+        'hide_on_screen'        => '',
+    ] );
+}
 
 
 // ============================================================
