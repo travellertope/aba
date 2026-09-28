@@ -226,6 +226,8 @@ export interface TeamMember extends WPNode {
   linkedinUrl: string | null;
   readMoreUrl: string | null;
   displayOrder: number | null;
+  /** JSON string of all ACF fields — parse with JSON.parse() to access extra fields */
+  acfFields: string | null;
 }
 
 export interface TeamMembersConnection {

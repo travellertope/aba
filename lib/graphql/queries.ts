@@ -285,6 +285,7 @@ export const GET_TEAM_MEMBERS = `
         linkedinUrl
         readMoreUrl
         displayOrder
+        acfFields
       }
     }
   }

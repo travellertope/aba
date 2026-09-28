@@ -895,88 +895,28 @@ function aba_register_team_member_graphql_fields() {
             return $src ? $src[0] : null;
         },
     ] );
-}
 
-// ACF field group registration (requires ACF plugin)
-add_action( 'acf/init', 'aba_register_team_member_acf_fields' );
-
-function aba_register_team_member_acf_fields() {
-    if ( ! function_exists( 'acf_add_local_field_group' ) ) {
-        return;
-    }
-
-    acf_add_local_field_group( [
-        'key'      => 'group_aba_team_member',
-        'title'    => 'Team Member Details',
-        'fields'   => [
-            [
-                'key'           => 'field_team_member_role',
-                'label'         => 'Role / Title',
-                'name'          => 'team_member_role',
-                'type'          => 'text',
-                'required'      => 1,
-                'maxlength'     => 120,
-                'instructions'  => 'e.g. "Convener" or "Head, Business Development"',
-            ],
-            [
-                'key'           => 'field_team_member_section',
-                'label'         => 'Section',
-                'name'          => 'team_member_section',
-                'type'          => 'select',
-                'required'      => 1,
-                'choices'       => [
-                    'management' => 'Management Team',
-                    'advisory'   => 'Advisory Board',
-                ],
-                'default_value' => 'management',
-                'allow_null'    => 0,
-                'return_format' => 'value',
-            ],
-            [
-                'key'           => 'field_team_member_bio',
-                'label'         => 'Short Bio',
-                'name'          => 'team_member_bio',
-                'type'          => 'textarea',
-                'rows'          => 4,
-                'maxlength'     => 1000,
-            ],
-            [
-                'key'           => 'field_team_member_linkedin_url',
-                'label'         => 'LinkedIn URL',
-                'name'          => 'team_member_linkedin_url',
-                'type'          => 'url',
-                'maxlength'     => 255,
-            ],
-            [
-                'key'           => 'field_team_member_read_more_url',
-                'label'         => 'Read More URL',
-                'name'          => 'team_member_read_more_url',
-                'type'          => 'url',
-                'instructions'  => 'Link shown on the "Read More >" button (advisory board members).',
-                'maxlength'     => 255,
-            ],
-            [
-                'key'           => 'field_team_member_display_order',
-                'label'         => 'Display Order',
-                'name'          => 'team_member_display_order',
-                'type'          => 'number',
-                'default_value' => 10,
-                'min'           => 0,
-                'max'           => 9999,
-                'instructions'  => 'Lower numbers appear first within each section.',
-            ],
-        ],
-        'location' => [
-            [
-                [
-                    'param'    => 'post_type',
-                    'operator' => '==',
-                    'value'    => 'aba_team_member',
-                ],
-            ],
-        ],
+    // Catch-all: every ACF field added via the WP admin is automatically
+    // included here as a JSON string, so no PHP change is needed for new fields.
+    register_graphql_field( 'TeamMember', 'acfFields', [
+        'type'        => 'String',
+        'description' => 'JSON-encoded map of all ACF fields for this team member.',
+        'resolve'     => function( $post ) {
+            if ( ! function_exists( 'get_fields' ) ) {
+                return null;
+            }
+            $fields = get_fields( $post->databaseId );
+            return ( $fields && is_array( $fields ) ) ? wp_json_encode( $fields ) : null;
+        },
     ] );
 }
+
+// NOTE: The ACF field group for Team Members is managed entirely through the
+// WordPress admin (ACF → Field Groups). Keeping it out of code means you can
+// freely add, reorder, or remove fields without touching this file.
+// Required field names for the Next.js frontend:
+//   team_member_role, team_member_section, team_member_bio,
+//   team_member_linkedin_url, team_member_read_more_url, team_member_display_order
 
 
 // ============================================================
