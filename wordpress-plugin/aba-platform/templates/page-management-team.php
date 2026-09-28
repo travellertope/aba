@@ -21,12 +21,6 @@ $advisory_rows   = get_field( 'advisory_board' )    ?: [];
 
 .aba-mt-hero {
     position: relative;
-    /* full-bleed breakout — escapes any theme content container */
-    width: 100vw;
-    left: 50%;
-    right: 50%;
-    margin-left: -50vw;
-    margin-right: -50vw;
     min-height: 200px;
     display: flex;
     align-items: center;
@@ -34,6 +28,7 @@ $advisory_rows   = get_field( 'advisory_board' )    ?: [];
     text-align: center;
     background-color: #1a2340;
     overflow: hidden;
+    /* JS breakout applies width + left at runtime */
 }
 .aba-mt-hero--advisory { background-color: #2d4a7a; }
 .aba-mt-hero__overlay {
@@ -241,5 +236,50 @@ $advisory_rows   = get_field( 'advisory_board' )    ?: [];
     </div>
 
 </div><!-- /.aba-mt-page -->
+
+<script>
+(function () {
+    function breakoutHeros() {
+        /* Un-clip any ancestor that has overflow hidden/auto — the most common
+           reason a CSS-only vw breakout gets clipped in WordPress themes. */
+        var heros = document.querySelectorAll('.aba-mt-hero');
+        if (!heros.length) return;
+
+        /* Walk up from the first hero and remove overflow constraints */
+        var el = heros[0].parentElement;
+        while (el && el !== document.body) {
+            var cs = window.getComputedStyle(el);
+            if (cs.overflow === 'hidden' || cs.overflowX === 'hidden') {
+                el.style.setProperty('overflow', 'visible', 'important');
+                el.style.setProperty('overflow-x', 'visible', 'important');
+            }
+            el = el.parentElement;
+        }
+
+        /* Now measure the hero's real left offset from the viewport and
+           stretch it to full viewport width */
+        heros.forEach(function (hero) {
+            hero.style.left   = '';
+            hero.style.width  = '';
+            hero.style.marginLeft = '';
+            /* After reset, measure */
+            var rect = hero.getBoundingClientRect();
+            var scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+            var leftPx  = -(rect.left + scrollX);
+            hero.style.position   = 'relative';
+            hero.style.left       = leftPx + 'px';
+            hero.style.width      = window.innerWidth + 'px';
+            hero.style.maxWidth   = 'none';
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', breakoutHeros);
+    } else {
+        breakoutHeros();
+    }
+    window.addEventListener('resize', breakoutHeros);
+})();
+</script>
 
 <?php get_footer(); ?>
