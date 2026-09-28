@@ -213,6 +213,26 @@ export interface AbaSession {
   expires: string;
 }
 
+// ── Team Member ───────────────────────────────────────────
+
+export type TeamMemberSection = 'management' | 'advisory';
+
+export interface TeamMember extends WPNode {
+  title: string;
+  photoUrl: string | null;
+  memberRole: string | null;
+  memberSection: TeamMemberSection | null;
+  memberBio: string | null;
+  linkedinUrl: string | null;
+  readMoreUrl: string | null;
+  displayOrder: number | null;
+}
+
+export interface TeamMembersConnection {
+  nodes: TeamMember[];
+  pageInfo: PageInfo;
+}
+
 // ── GraphQL mutation payloads ─────────────────────────────
 
 export interface UpdateProfilePayload {

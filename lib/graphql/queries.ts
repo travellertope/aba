@@ -269,6 +269,27 @@ export const GET_DASHBOARD_SUMMARY = `
   }
 `;
 
+// ── Team Members (public) ─────────────────────────────────
+
+export const GET_TEAM_MEMBERS = `
+  query GetTeamMembers {
+    teamMembers(first: 100, where: { orderby: { field: META_VALUE_NUM, order: ASC } }) {
+      nodes {
+        id
+        databaseId
+        title
+        photoUrl
+        memberRole
+        memberSection
+        memberBio
+        linkedinUrl
+        readMoreUrl
+        displayOrder
+      }
+    }
+  }
+`;
+
 // ── Members list (admin) ──────────────────────────────────
 
 export const GET_MEMBERS = `

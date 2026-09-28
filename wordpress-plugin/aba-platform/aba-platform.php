@@ -816,11 +816,176 @@ function aba_graphql_cors_headers( array $headers ): array {
 
 
 // ============================================================
-// 9. FLUSH REWRITE RULES on Activation
+// 9. TEAM MEMBER CPT + ACF-STYLE META
+// ============================================================
+
+add_action( 'init', 'aba_register_team_member_cpt' );
+
+function aba_register_team_member_cpt() {
+    register_post_type( 'aba_team_member', [
+        'labels'              => aba_labels( 'Team Member', 'Team Members' ),
+        'public'              => false,
+        'show_ui'             => true,
+        'show_in_graphql'     => true,
+        'graphql_single_name' => 'teamMember',
+        'graphql_plural_name' => 'teamMembers',
+        'supports'            => [ 'title', 'thumbnail' ],
+        'menu_icon'           => 'dashicons-groups',
+        'show_in_rest'        => true,
+    ] );
+}
+
+add_action( 'init', 'aba_register_team_member_meta' );
+
+function aba_register_team_member_meta() {
+    $fields = [
+        'team_member_role'          => 'string',
+        'team_member_section'       => 'string',  // 'management' | 'advisory'
+        'team_member_bio'           => 'string',
+        'team_member_linkedin_url'  => 'string',
+        'team_member_read_more_url' => 'string',
+        'team_member_display_order' => 'integer',
+    ];
+
+    foreach ( $fields as $key => $type ) {
+        register_post_meta( 'aba_team_member', $key, [
+            'type'         => $type,
+            'single'       => true,
+            'show_in_rest' => true,
+        ] );
+    }
+}
+
+add_action( 'graphql_register_types', 'aba_register_team_member_graphql_fields' );
+
+function aba_register_team_member_graphql_fields() {
+    if ( ! function_exists( 'register_graphql_field' ) ) {
+        return;
+    }
+
+    $fields = [
+        'memberRole'        => [ 'type' => 'String', 'key' => 'team_member_role' ],
+        'memberSection'     => [ 'type' => 'String', 'key' => 'team_member_section' ],
+        'memberBio'         => [ 'type' => 'String', 'key' => 'team_member_bio' ],
+        'linkedinUrl'       => [ 'type' => 'String', 'key' => 'team_member_linkedin_url' ],
+        'readMoreUrl'       => [ 'type' => 'String', 'key' => 'team_member_read_more_url' ],
+        'displayOrder'      => [ 'type' => 'Int',    'key' => 'team_member_display_order' ],
+    ];
+
+    foreach ( $fields as $field_name => $config ) {
+        register_graphql_field( 'TeamMember', $field_name, [
+            'type'        => $config['type'],
+            'description' => "Team member ACF field: {$config['key']}",
+            'resolve'     => function( $post ) use ( $config ) {
+                return get_post_meta( $post->databaseId, $config['key'], true ) ?: null;
+            },
+        ] );
+    }
+
+    // Expose the featured image URL directly for convenience
+    register_graphql_field( 'TeamMember', 'photoUrl', [
+        'type'        => 'String',
+        'description' => 'URL of the team member profile photo (featured image).',
+        'resolve'     => function( $post ) {
+            $thumb_id = get_post_thumbnail_id( $post->databaseId );
+            if ( ! $thumb_id ) {
+                return null;
+            }
+            $src = wp_get_attachment_image_src( $thumb_id, 'medium' );
+            return $src ? $src[0] : null;
+        },
+    ] );
+}
+
+// ACF field group registration (requires ACF plugin)
+add_action( 'acf/init', 'aba_register_team_member_acf_fields' );
+
+function aba_register_team_member_acf_fields() {
+    if ( ! function_exists( 'acf_add_local_field_group' ) ) {
+        return;
+    }
+
+    acf_add_local_field_group( [
+        'key'      => 'group_aba_team_member',
+        'title'    => 'Team Member Details',
+        'fields'   => [
+            [
+                'key'           => 'field_team_member_role',
+                'label'         => 'Role / Title',
+                'name'          => 'team_member_role',
+                'type'          => 'text',
+                'required'      => 1,
+                'maxlength'     => 120,
+                'instructions'  => 'e.g. "Convener" or "Head, Business Development"',
+            ],
+            [
+                'key'           => 'field_team_member_section',
+                'label'         => 'Section',
+                'name'          => 'team_member_section',
+                'type'          => 'select',
+                'required'      => 1,
+                'choices'       => [
+                    'management' => 'Management Team',
+                    'advisory'   => 'Advisory Board',
+                ],
+                'default_value' => 'management',
+                'allow_null'    => 0,
+                'return_format' => 'value',
+            ],
+            [
+                'key'           => 'field_team_member_bio',
+                'label'         => 'Short Bio',
+                'name'          => 'team_member_bio',
+                'type'          => 'textarea',
+                'rows'          => 4,
+                'maxlength'     => 1000,
+            ],
+            [
+                'key'           => 'field_team_member_linkedin_url',
+                'label'         => 'LinkedIn URL',
+                'name'          => 'team_member_linkedin_url',
+                'type'          => 'url',
+                'maxlength'     => 255,
+            ],
+            [
+                'key'           => 'field_team_member_read_more_url',
+                'label'         => 'Read More URL',
+                'name'          => 'team_member_read_more_url',
+                'type'          => 'url',
+                'instructions'  => 'Link shown on the "Read More >" button (advisory board members).',
+                'maxlength'     => 255,
+            ],
+            [
+                'key'           => 'field_team_member_display_order',
+                'label'         => 'Display Order',
+                'name'          => 'team_member_display_order',
+                'type'          => 'number',
+                'default_value' => 10,
+                'min'           => 0,
+                'max'           => 9999,
+                'instructions'  => 'Lower numbers appear first within each section.',
+            ],
+        ],
+        'location' => [
+            [
+                [
+                    'param'    => 'post_type',
+                    'operator' => '==',
+                    'value'    => 'aba_team_member',
+                ],
+            ],
+        ],
+    ] );
+}
+
+
+// ============================================================
+// 10. FLUSH REWRITE RULES on Activation
 // ============================================================
 
 register_activation_hook( __FILE__, function() {
     aba_register_post_types();
+    aba_register_team_member_cpt();
     flush_rewrite_rules();
 } );
 
