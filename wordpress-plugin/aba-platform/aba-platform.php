@@ -935,90 +935,144 @@ function aba_load_management_team_template( string $template ): string {
 }
 
 
-// ── Seed the ACF field group into the database on first install ───────────────
-// Uses acf_import_field_group() so the group is saved as a regular DB record —
-// fully editable in ACF → Field Groups. Runs only when the group doesn't exist
-// yet, so any changes you make in the admin are never overwritten on update.
-add_action( 'acf/init', 'aba_seed_team_member_field_group' );
+// ── Seed the ACF repeater field group into the database on first install ─────
+// Attaches two Repeater fields directly to the Management Team page template so
+// all members are managed from one page in the WP admin (no separate CPT posts).
+// acf_import_field_group() writes to the DB → fully editable in ACF → Field Groups.
+// The existence check means admin edits are never overwritten on plugin updates.
+add_action( 'acf/init', 'aba_seed_management_team_repeaters' );
 
-function aba_seed_team_member_field_group(): void {
+function aba_seed_management_team_repeaters(): void {
     if ( ! function_exists( 'acf_get_field_group' ) || ! function_exists( 'acf_import_field_group' ) ) {
         return;
     }
 
-    // Skip if the group already exists (preserves admin edits)
-    if ( acf_get_field_group( 'group_aba_team_member' ) ) {
+    if ( acf_get_field_group( 'group_aba_management_team_page' ) ) {
         return;
     }
 
+    $template_path = plugin_dir_path( __FILE__ ) . 'templates/page-management-team.php';
+
     acf_import_field_group( [
-        'key'                   => 'group_aba_team_member',
-        'title'                 => 'Team Member Details',
+        'key'                   => 'group_aba_management_team_page',
+        'title'                 => 'Management Team Page',
         'active'                => true,
         'fields'                => [
+
+            // ── Management Team repeater ──────────────────────────────────
             [
-                'key'           => 'field_team_member_role',
-                'label'         => 'Role / Title',
-                'name'          => 'team_member_role',
-                'type'          => 'text',
-                'required'      => 1,
-                'maxlength'     => 120,
-                'instructions'  => 'e.g. "Convener" or "Head, Business Development"',
-            ],
-            [
-                'key'           => 'field_team_member_section',
-                'label'         => 'Section',
-                'name'          => 'team_member_section',
-                'type'          => 'select',
-                'required'      => 1,
-                'choices'       => [
-                    'management' => 'Management Team',
-                    'advisory'   => 'Advisory Board',
+                'key'           => 'field_mt_management_team',
+                'label'         => 'Management Team',
+                'name'          => 'management_team',
+                'type'          => 'repeater',
+                'instructions'  => 'Add each management team member. Drag rows to reorder.',
+                'button_label'  => 'Add Team Member',
+                'layout'        => 'block',
+                'sub_fields'    => [
+                    [
+                        'key'           => 'field_mt_mgmt_name',
+                        'label'         => 'Full Name',
+                        'name'          => 'name',
+                        'type'          => 'text',
+                        'required'      => 1,
+                        'maxlength'     => 120,
+                        'wrapper'       => [ 'width' => '50' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_mgmt_role',
+                        'label'         => 'Role / Title',
+                        'name'          => 'role',
+                        'type'          => 'text',
+                        'required'      => 1,
+                        'maxlength'     => 120,
+                        'instructions'  => 'e.g. "Convener" or "Head, Business Development"',
+                        'wrapper'       => [ 'width' => '50' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_mgmt_photo',
+                        'label'         => 'Profile Photo',
+                        'name'          => 'photo',
+                        'type'          => 'image',
+                        'return_format' => 'url',
+                        'preview_size'  => 'thumbnail',
+                        'wrapper'       => [ 'width' => '30' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_mgmt_bio',
+                        'label'         => 'Short Bio',
+                        'name'          => 'bio',
+                        'type'          => 'textarea',
+                        'rows'          => 3,
+                        'maxlength'     => 1000,
+                        'wrapper'       => [ 'width' => '70' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_mgmt_linkedin',
+                        'label'         => 'LinkedIn URL',
+                        'name'          => 'linkedin_url',
+                        'type'          => 'url',
+                        'maxlength'     => 255,
+                        'wrapper'       => [ 'width' => '100' ],
+                    ],
                 ],
-                'default_value' => 'management',
-                'allow_null'    => 0,
-                'return_format' => 'value',
             ],
+
+            // ── Advisory Board repeater ───────────────────────────────────
             [
-                'key'           => 'field_team_member_bio',
-                'label'         => 'Short Bio',
-                'name'          => 'team_member_bio',
-                'type'          => 'textarea',
-                'rows'          => 4,
-                'maxlength'     => 1000,
+                'key'           => 'field_mt_advisory_board',
+                'label'         => 'Advisory Board Members',
+                'name'          => 'advisory_board',
+                'type'          => 'repeater',
+                'instructions'  => 'Add each advisory board member. Drag rows to reorder.',
+                'button_label'  => 'Add Advisory Member',
+                'layout'        => 'block',
+                'sub_fields'    => [
+                    [
+                        'key'           => 'field_mt_adv_name',
+                        'label'         => 'Full Name',
+                        'name'          => 'name',
+                        'type'          => 'text',
+                        'required'      => 1,
+                        'maxlength'     => 120,
+                        'wrapper'       => [ 'width' => '50' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_adv_photo',
+                        'label'         => 'Profile Photo',
+                        'name'          => 'photo',
+                        'type'          => 'image',
+                        'return_format' => 'url',
+                        'preview_size'  => 'thumbnail',
+                        'wrapper'       => [ 'width' => '30' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_adv_bio',
+                        'label'         => 'Short Bio',
+                        'name'          => 'bio',
+                        'type'          => 'textarea',
+                        'rows'          => 3,
+                        'maxlength'     => 1000,
+                        'wrapper'       => [ 'width' => '70' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_adv_read_more',
+                        'label'         => 'Read More URL',
+                        'name'          => 'read_more_url',
+                        'type'          => 'url',
+                        'instructions'  => 'Link for the "Read More >" button.',
+                        'maxlength'     => 255,
+                        'wrapper'       => [ 'width' => '100' ],
+                    ],
+                ],
             ],
-            [
-                'key'           => 'field_team_member_linkedin_url',
-                'label'         => 'LinkedIn URL',
-                'name'          => 'team_member_linkedin_url',
-                'type'          => 'url',
-                'maxlength'     => 255,
-            ],
-            [
-                'key'           => 'field_team_member_read_more_url',
-                'label'         => 'Read More URL',
-                'name'          => 'team_member_read_more_url',
-                'type'          => 'url',
-                'instructions'  => 'Link shown on the "Read More >" button (advisory board members).',
-                'maxlength'     => 255,
-            ],
-            [
-                'key'           => 'field_team_member_display_order',
-                'label'         => 'Display Order',
-                'name'          => 'team_member_display_order',
-                'type'          => 'number',
-                'default_value' => 10,
-                'min'           => 0,
-                'max'           => 9999,
-                'instructions'  => 'Lower numbers appear first within each section.',
-            ],
+
         ],
         'location' => [
             [
                 [
-                    'param'    => 'post_type',
+                    'param'    => 'page_template',
                     'operator' => '==',
-                    'value'    => 'aba_team_member',
+                    'value'    => $template_path,
                 ],
             ],
         ],
@@ -1027,7 +1081,6 @@ function aba_seed_team_member_field_group(): void {
         'style'                 => 'default',
         'label_placement'       => 'top',
         'instruction_placement' => 'label',
-        'hide_on_screen'        => '',
     ] );
 }
 

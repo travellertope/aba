@@ -1,66 +1,24 @@
 <?php
 /**
  * Template Name: Management Team
- * Description:  ACF-powered Management Team & Advisory Board page.
- *               Assign this template to any WordPress Page via the
- *               Page Attributes → Template dropdown.
+ * Description:  ACF Repeater-powered Management Team & Advisory Board page.
+ *               Assign this template to any WordPress Page via
+ *               Page Attributes → Template, then fill in the two
+ *               repeater fields that appear below the editor.
  */
 
 defined( 'ABSPATH' ) || exit;
 
 get_header();
 
-// ── Fetch all team members, ordered by display_order then title ──────────────
-$management = [];
-$advisory   = [];
-
-$members_query = new WP_Query( [
-    'post_type'      => 'aba_team_member',
-    'post_status'    => 'publish',
-    'posts_per_page' => 200,
-    'meta_key'       => 'team_member_display_order',
-    'orderby'        => [ 'meta_value_num' => 'ASC', 'title' => 'ASC' ],
-    'no_found_rows'  => true,
-] );
-
-if ( $members_query->have_posts() ) {
-    while ( $members_query->have_posts() ) {
-        $members_query->the_post();
-
-        // Use ACF get_fields() when available, fall back to get_post_meta()
-        if ( function_exists( 'get_fields' ) ) {
-            $acf = get_fields( get_the_ID() ) ?: [];
-        } else {
-            $acf = [];
-        }
-
-        $member = [
-            'id'            => get_the_ID(),
-            'name'          => get_the_title(),
-            'photo_url'     => get_the_post_thumbnail_url( get_the_ID(), 'medium' ) ?: '',
-            'role'          => $acf['team_member_role']          ?? get_post_meta( get_the_ID(), 'team_member_role',          true ),
-            'section'       => $acf['team_member_section']       ?? get_post_meta( get_the_ID(), 'team_member_section',       true ),
-            'bio'           => $acf['team_member_bio']           ?? get_post_meta( get_the_ID(), 'team_member_bio',           true ),
-            'linkedin_url'  => $acf['team_member_linkedin_url']  ?? get_post_meta( get_the_ID(), 'team_member_linkedin_url',  true ),
-            'read_more_url' => $acf['team_member_read_more_url'] ?? get_post_meta( get_the_ID(), 'team_member_read_more_url', true ),
-            'extra'         => $acf, // all ACF fields including any you add later
-        ];
-
-        if ( 'advisory' === $member['section'] ) {
-            $advisory[] = $member;
-        } else {
-            $management[] = $member;
-        }
-    }
-    wp_reset_postdata();
-}
+$management_rows = get_field( 'management_team' )  ?: [];
+$advisory_rows   = get_field( 'advisory_board' )    ?: [];
 ?>
 
 <style>
 /* ── Management Team page styles ── */
 .aba-mt-page { font-family: system-ui, -apple-system, sans-serif; color: #111827; }
 
-/* Hero banners */
 .aba-mt-hero {
     position: relative;
     min-height: 200px;
@@ -88,11 +46,7 @@ if ( $members_query->have_posts() ) {
     background-position: center;
     z-index: 0;
 }
-.aba-mt-hero__content {
-    position: relative;
-    z-index: 2;
-    padding: 4rem 1rem;
-}
+.aba-mt-hero__content { position: relative; z-index: 2; padding: 4rem 1rem; }
 .aba-mt-hero__title {
     font-size: clamp(1.75rem, 4vw, 2.5rem);
     font-weight: 800;
@@ -101,11 +55,9 @@ if ( $members_query->have_posts() ) {
     letter-spacing: .02em;
 }
 
-/* Section wrapper */
 .aba-mt-section { padding: 3.5rem 1rem; }
 .aba-mt-section__inner { max-width: 72rem; margin: 0 auto; }
 
-/* Grid */
 .aba-mt-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -114,7 +66,6 @@ if ( $members_query->have_posts() ) {
 @media (min-width: 640px)  { .aba-mt-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1024px) { .aba-mt-grid { grid-template-columns: repeat(3, 1fr); } }
 
-/* Cards */
 .aba-mt-card {
     border: 1px solid #e5e7eb;
     border-radius: 10px;
@@ -126,7 +77,6 @@ if ( $members_query->have_posts() ) {
     align-items: center;
 }
 
-/* Avatar */
 .aba-mt-avatar {
     width: 100px;
     height: 100px;
@@ -148,17 +98,10 @@ if ( $members_query->have_posts() ) {
     border-radius: 50%;
 }
 
-/* Member name */
-.aba-mt-card__name {
-    font-size: 16px;
-    font-weight: 700;
-    color: #111827;
-    margin: 0 0 6px;
-}
-/* Role */
-.aba-mt-card__role { font-size: 13px; color: #6b7280; margin: 0; }
+.aba-mt-card__name  { font-size: 16px; font-weight: 700; color: #111827; margin: 0 0 6px; }
+.aba-mt-card__role  { font-size: 13px; color: #6b7280; margin: 0; }
+.aba-mt-card__bio   { font-size: 12px; color: #4b5563; margin: 8px 0 0; line-height: 1.6; }
 
-/* LinkedIn */
 .aba-mt-card__linkedin {
     display: inline-flex;
     align-items: center;
@@ -170,7 +113,6 @@ if ( $members_query->have_posts() ) {
 }
 .aba-mt-card__linkedin:hover { text-decoration: underline; }
 
-/* Read More button */
 .aba-mt-card__read-more {
     display: inline-block;
     margin-top: 14px;
@@ -185,16 +127,7 @@ if ( $members_query->have_posts() ) {
 }
 .aba-mt-card__read-more:hover { opacity: .85; color: #fff; }
 
-/* Empty state */
 .aba-mt-empty { text-align: center; color: #6b7280; }
-
-/* Bio tooltip-style (shown on hover) */
-.aba-mt-card__bio {
-    font-size: 12px;
-    color: #4b5563;
-    margin: 8px 0 0;
-    line-height: 1.6;
-}
 </style>
 
 <div class="aba-mt-page">
@@ -202,7 +135,9 @@ if ( $members_query->have_posts() ) {
     <?php /* ── Management Team hero ── */ ?>
     <div class="aba-mt-hero">
         <?php if ( has_post_thumbnail() ) : ?>
-            <div class="aba-mt-hero__bg" style="background-image:url('<?php echo esc_url( get_the_post_thumbnail_url( get_the_ID(), 'full' ) ); ?>')"></div>
+            <div class="aba-mt-hero__bg"
+                 style="background-image:url('<?php echo esc_url( get_the_post_thumbnail_url( get_the_ID(), 'full' ) ); ?>')">
+            </div>
         <?php endif; ?>
         <div class="aba-mt-hero__overlay"></div>
         <div class="aba-mt-hero__content">
@@ -210,41 +145,43 @@ if ( $members_query->have_posts() ) {
         </div>
     </div>
 
-    <?php /* ── Management Team grid ── */ ?>
+    <?php /* ── Management Team repeater grid ── */ ?>
     <div class="aba-mt-section">
         <div class="aba-mt-section__inner">
-            <?php if ( empty( $management ) ) : ?>
-                <p class="aba-mt-empty">No management team members found.</p>
+            <?php if ( empty( $management_rows ) ) : ?>
+                <p class="aba-mt-empty">No management team members added yet.</p>
             <?php else : ?>
                 <div class="aba-mt-grid">
-                    <?php foreach ( $management as $m ) : ?>
+                    <?php foreach ( $management_rows as $row ) : ?>
                         <div class="aba-mt-card">
+
                             <div class="aba-mt-avatar">
-                                <?php if ( $m['photo_url'] ) : ?>
-                                    <img src="<?php echo esc_url( $m['photo_url'] ); ?>"
-                                         alt="<?php echo esc_attr( $m['name'] ); ?>">
+                                <?php if ( ! empty( $row['photo'] ) ) : ?>
+                                    <img src="<?php echo esc_url( $row['photo'] ); ?>"
+                                         alt="<?php echo esc_attr( $row['name'] ); ?>">
                                 <?php else : ?>
                                     <div class="aba-mt-avatar__placeholder"></div>
                                 <?php endif; ?>
                             </div>
 
-                            <h2 class="aba-mt-card__name"><?php echo esc_html( $m['name'] ); ?></h2>
+                            <h2 class="aba-mt-card__name"><?php echo esc_html( $row['name'] ); ?></h2>
 
-                            <?php if ( $m['role'] ) : ?>
-                                <p class="aba-mt-card__role"><?php echo esc_html( $m['role'] ); ?></p>
+                            <?php if ( ! empty( $row['role'] ) ) : ?>
+                                <p class="aba-mt-card__role"><?php echo esc_html( $row['role'] ); ?></p>
                             <?php endif; ?>
 
-                            <?php if ( $m['bio'] ) : ?>
-                                <p class="aba-mt-card__bio"><?php echo esc_html( $m['bio'] ); ?></p>
+                            <?php if ( ! empty( $row['bio'] ) ) : ?>
+                                <p class="aba-mt-card__bio"><?php echo esc_html( $row['bio'] ); ?></p>
                             <?php endif; ?>
 
-                            <?php if ( $m['linkedin_url'] ) : ?>
+                            <?php if ( ! empty( $row['linkedin_url'] ) ) : ?>
                                 <a class="aba-mt-card__linkedin"
-                                   href="<?php echo esc_url( $m['linkedin_url'] ); ?>"
+                                   href="<?php echo esc_url( $row['linkedin_url'] ); ?>"
                                    target="_blank" rel="noopener noreferrer">
                                     LinkedIn ↗
                                 </a>
                             <?php endif; ?>
+
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -260,34 +197,36 @@ if ( $members_query->have_posts() ) {
         </div>
     </div>
 
-    <?php /* ── Advisory Board grid ── */ ?>
+    <?php /* ── Advisory Board repeater grid ── */ ?>
     <div class="aba-mt-section">
         <div class="aba-mt-section__inner">
-            <?php if ( empty( $advisory ) ) : ?>
-                <p class="aba-mt-empty">No advisory board members found.</p>
+            <?php if ( empty( $advisory_rows ) ) : ?>
+                <p class="aba-mt-empty">No advisory board members added yet.</p>
             <?php else : ?>
                 <div class="aba-mt-grid">
-                    <?php foreach ( $advisory as $m ) : ?>
+                    <?php foreach ( $advisory_rows as $row ) : ?>
                         <div class="aba-mt-card">
+
                             <div class="aba-mt-avatar">
-                                <?php if ( $m['photo_url'] ) : ?>
-                                    <img src="<?php echo esc_url( $m['photo_url'] ); ?>"
-                                         alt="<?php echo esc_attr( $m['name'] ); ?>">
+                                <?php if ( ! empty( $row['photo'] ) ) : ?>
+                                    <img src="<?php echo esc_url( $row['photo'] ); ?>"
+                                         alt="<?php echo esc_attr( $row['name'] ); ?>">
                                 <?php else : ?>
                                     <div class="aba-mt-avatar__placeholder"></div>
                                 <?php endif; ?>
                             </div>
 
-                            <h2 class="aba-mt-card__name"><?php echo esc_html( $m['name'] ); ?></h2>
+                            <h2 class="aba-mt-card__name"><?php echo esc_html( $row['name'] ); ?></h2>
 
-                            <?php if ( $m['bio'] ) : ?>
-                                <p class="aba-mt-card__bio"><?php echo esc_html( $m['bio'] ); ?></p>
+                            <?php if ( ! empty( $row['bio'] ) ) : ?>
+                                <p class="aba-mt-card__bio"><?php echo esc_html( $row['bio'] ); ?></p>
                             <?php endif; ?>
 
                             <a class="aba-mt-card__read-more"
-                               href="<?php echo $m['read_more_url'] ? esc_url( $m['read_more_url'] ) : '#'; ?>">
+                               href="<?php echo ! empty( $row['read_more_url'] ) ? esc_url( $row['read_more_url'] ) : '#'; ?>">
                                 Read More &gt;
                             </a>
+
                         </div>
                     <?php endforeach; ?>
                 </div>
