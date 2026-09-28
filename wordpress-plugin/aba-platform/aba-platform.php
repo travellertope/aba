@@ -911,6 +911,30 @@ function aba_register_team_member_graphql_fields() {
     ] );
 }
 
+// ── Register the page template so WP finds it inside the plugin ──────────────
+add_filter( 'theme_page_templates', 'aba_register_management_team_template' );
+
+function aba_register_management_team_template( array $templates ): array {
+    $templates[ plugin_dir_path( __FILE__ ) . 'templates/page-management-team.php' ] = 'Management Team';
+    return $templates;
+}
+
+add_filter( 'template_include', 'aba_load_management_team_template' );
+
+function aba_load_management_team_template( string $template ): string {
+    if ( ! is_page() ) {
+        return $template;
+    }
+    $page_template = get_post_meta( get_the_ID(), '_wp_page_template', true );
+    $plugin_file   = plugin_dir_path( __FILE__ ) . 'templates/page-management-team.php';
+
+    if ( $page_template === $plugin_file && file_exists( $plugin_file ) ) {
+        return $plugin_file;
+    }
+    return $template;
+}
+
+
 // NOTE: The ACF field group for Team Members is managed entirely through the
 // WordPress admin (ACF → Field Groups). Keeping it out of code means you can
 // freely add, reorder, or remove fields without touching this file.
