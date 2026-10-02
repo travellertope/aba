@@ -56,6 +56,8 @@ export interface MembershipTierConfig {
   description: string;
   /** Short factual eligibility line shown on the tier picker, e.g. "1-20 employees". */
   eligibility: string;
+  /** Condensed benefit bullets shown under the tier picker for the selected tier. */
+  benefits: string[];
   prices: Partial<Record<BillingInterval, { amountPence: number; label: string }>>;
 }
 

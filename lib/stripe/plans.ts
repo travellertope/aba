@@ -15,6 +15,13 @@ export const TIER_CONFIG: Record<PayMembershipTier, MembershipTierConfig> = {
     name: 'Individual Membership',
     description: 'For intending entrepreneurs, start-ups, and professionals.',
     eligibility: 'Start-ups & professionals',
+    benefits: [
+      'Networking events & mentor access across the African business community',
+      'Discounted workshops and training on business, finance & digital marketing',
+      'Business resource library — templates, legal & financial guides',
+      'Funding and grant application support',
+      'Listing in the ABA Yorkshire member directory',
+    ],
     prices: {
       monthly: { amountPence: 800, label: '£8/month' },
       yearly: { amountPence: 9000, label: '£90/year' },
@@ -25,6 +32,14 @@ export const TIER_CONFIG: Record<PayMembershipTier, MembershipTierConfig> = {
     name: 'SME Membership',
     description: 'For entrepreneurs with one+ year in business, or 1–20 employees.',
     eligibility: '1–20 employees',
+    benefits: [
+      'Everything in Individual, plus:',
+      'Tailored business growth & scaling support',
+      'Priority invitations to trade shows & investor expos',
+      'SME advocacy in local government & business forums',
+      'Discounts on legal, accounting & marketing services',
+      'Market trend reports & industry insights',
+    ],
     prices: {
       monthly: { amountPence: 2500, label: '£25/month' },
       yearly: { amountPence: 30000, label: '£300/year' },
@@ -35,6 +50,14 @@ export const TIER_CONFIG: Record<PayMembershipTier, MembershipTierConfig> = {
     name: 'Corporate Membership',
     description: 'For corporate, government and partner organisations (10+ employees).',
     eligibility: '10+ employees',
+    benefits: [
+      'Everything in SME, plus:',
+      'Executive-level networking & CSR partnerships',
+      'Sponsorship & exhibition opportunities at ABA events',
+      'Brand visibility across ABA publications & media',
+      'Strategic consulting on market entry & trade',
+      'Direct input into ABA policy & advocacy work',
+    ],
     prices: {
       // Corporate is a recurring annual subscription only — no monthly option.
       yearly: { amountPence: 100000, label: '£1,000/year' },
