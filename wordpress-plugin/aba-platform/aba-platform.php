@@ -816,11 +816,282 @@ function aba_graphql_cors_headers( array $headers ): array {
 
 
 // ============================================================
-// 9. FLUSH REWRITE RULES on Activation
+// 9. TEAM MEMBER CPT + ACF-STYLE META
+// ============================================================
+
+add_action( 'init', 'aba_register_team_member_cpt' );
+
+function aba_register_team_member_cpt() {
+    register_post_type( 'aba_team_member', [
+        'labels'              => aba_labels( 'Team Member', 'Team Members' ),
+        'public'              => false,
+        'show_ui'             => true,
+        'show_in_graphql'     => true,
+        'graphql_single_name' => 'teamMember',
+        'graphql_plural_name' => 'teamMembers',
+        'supports'            => [ 'title', 'thumbnail' ],
+        'menu_icon'           => 'dashicons-groups',
+        'show_in_rest'        => true,
+    ] );
+}
+
+add_action( 'init', 'aba_register_team_member_meta' );
+
+function aba_register_team_member_meta() {
+    $fields = [
+        'team_member_role'          => 'string',
+        'team_member_section'       => 'string',  // 'management' | 'advisory'
+        'team_member_bio'           => 'string',
+        'team_member_linkedin_url'  => 'string',
+        'team_member_read_more_url' => 'string',
+        'team_member_display_order' => 'integer',
+    ];
+
+    foreach ( $fields as $key => $type ) {
+        register_post_meta( 'aba_team_member', $key, [
+            'type'         => $type,
+            'single'       => true,
+            'show_in_rest' => true,
+        ] );
+    }
+}
+
+add_action( 'graphql_register_types', 'aba_register_team_member_graphql_fields' );
+
+function aba_register_team_member_graphql_fields() {
+    if ( ! function_exists( 'register_graphql_field' ) ) {
+        return;
+    }
+
+    $fields = [
+        'memberRole'        => [ 'type' => 'String', 'key' => 'team_member_role' ],
+        'memberSection'     => [ 'type' => 'String', 'key' => 'team_member_section' ],
+        'memberBio'         => [ 'type' => 'String', 'key' => 'team_member_bio' ],
+        'linkedinUrl'       => [ 'type' => 'String', 'key' => 'team_member_linkedin_url' ],
+        'readMoreUrl'       => [ 'type' => 'String', 'key' => 'team_member_read_more_url' ],
+        'displayOrder'      => [ 'type' => 'Int',    'key' => 'team_member_display_order' ],
+    ];
+
+    foreach ( $fields as $field_name => $config ) {
+        register_graphql_field( 'TeamMember', $field_name, [
+            'type'        => $config['type'],
+            'description' => "Team member ACF field: {$config['key']}",
+            'resolve'     => function( $post ) use ( $config ) {
+                return get_post_meta( $post->databaseId, $config['key'], true ) ?: null;
+            },
+        ] );
+    }
+
+    // Expose the featured image URL directly for convenience
+    register_graphql_field( 'TeamMember', 'photoUrl', [
+        'type'        => 'String',
+        'description' => 'URL of the team member profile photo (featured image).',
+        'resolve'     => function( $post ) {
+            $thumb_id = get_post_thumbnail_id( $post->databaseId );
+            if ( ! $thumb_id ) {
+                return null;
+            }
+            $src = wp_get_attachment_image_src( $thumb_id, 'medium' );
+            return $src ? $src[0] : null;
+        },
+    ] );
+
+    // Catch-all: every ACF field added via the WP admin is automatically
+    // included here as a JSON string, so no PHP change is needed for new fields.
+    register_graphql_field( 'TeamMember', 'acfFields', [
+        'type'        => 'String',
+        'description' => 'JSON-encoded map of all ACF fields for this team member.',
+        'resolve'     => function( $post ) {
+            if ( ! function_exists( 'get_fields' ) ) {
+                return null;
+            }
+            $fields = get_fields( $post->databaseId );
+            return ( $fields && is_array( $fields ) ) ? wp_json_encode( $fields ) : null;
+        },
+    ] );
+}
+
+// ── Register the page template so WP finds it inside the plugin ──────────────
+add_filter( 'theme_page_templates', 'aba_register_management_team_template' );
+
+function aba_register_management_team_template( array $templates ): array {
+    $templates[ plugin_dir_path( __FILE__ ) . 'templates/page-management-team.php' ] = 'Management Team';
+    return $templates;
+}
+
+add_filter( 'template_include', 'aba_load_management_team_template' );
+
+function aba_load_management_team_template( string $template ): string {
+    if ( ! is_page() ) {
+        return $template;
+    }
+    $page_template = get_post_meta( get_the_ID(), '_wp_page_template', true );
+    $plugin_file   = plugin_dir_path( __FILE__ ) . 'templates/page-management-team.php';
+
+    if ( $page_template === $plugin_file && file_exists( $plugin_file ) ) {
+        return $plugin_file;
+    }
+    return $template;
+}
+
+
+// ── Seed the ACF repeater field group into the database on first install ─────
+// Attaches two Repeater fields directly to the Management Team page template so
+// all members are managed from one page in the WP admin (no separate CPT posts).
+// acf_import_field_group() writes to the DB → fully editable in ACF → Field Groups.
+// The existence check means admin edits are never overwritten on plugin updates.
+add_action( 'acf/init', 'aba_seed_management_team_repeaters' );
+
+function aba_seed_management_team_repeaters(): void {
+    if ( ! function_exists( 'acf_get_field_group' ) || ! function_exists( 'acf_import_field_group' ) ) {
+        return;
+    }
+
+    if ( acf_get_field_group( 'group_aba_management_team_page' ) ) {
+        return;
+    }
+
+    $template_path = plugin_dir_path( __FILE__ ) . 'templates/page-management-team.php';
+
+    acf_import_field_group( [
+        'key'                   => 'group_aba_management_team_page',
+        'title'                 => 'Management Team Page',
+        'active'                => true,
+        'fields'                => [
+
+            // ── Management Team repeater ──────────────────────────────────
+            [
+                'key'           => 'field_mt_management_team',
+                'label'         => 'Management Team',
+                'name'          => 'management_team',
+                'type'          => 'repeater',
+                'instructions'  => 'Add each management team member. Drag rows to reorder.',
+                'button_label'  => 'Add Team Member',
+                'layout'        => 'block',
+                'sub_fields'    => [
+                    [
+                        'key'           => 'field_mt_mgmt_name',
+                        'label'         => 'Full Name',
+                        'name'          => 'name',
+                        'type'          => 'text',
+                        'required'      => 1,
+                        'maxlength'     => 120,
+                        'wrapper'       => [ 'width' => '50' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_mgmt_role',
+                        'label'         => 'Role / Title',
+                        'name'          => 'role',
+                        'type'          => 'text',
+                        'required'      => 1,
+                        'maxlength'     => 120,
+                        'instructions'  => 'e.g. "Convener" or "Head, Business Development"',
+                        'wrapper'       => [ 'width' => '50' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_mgmt_photo',
+                        'label'         => 'Profile Photo',
+                        'name'          => 'photo',
+                        'type'          => 'image',
+                        'return_format' => 'url',
+                        'preview_size'  => 'thumbnail',
+                        'wrapper'       => [ 'width' => '30' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_mgmt_bio',
+                        'label'         => 'Short Bio',
+                        'name'          => 'bio',
+                        'type'          => 'textarea',
+                        'rows'          => 3,
+                        'maxlength'     => 1000,
+                        'wrapper'       => [ 'width' => '70' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_mgmt_linkedin',
+                        'label'         => 'LinkedIn URL',
+                        'name'          => 'linkedin_url',
+                        'type'          => 'url',
+                        'maxlength'     => 255,
+                        'wrapper'       => [ 'width' => '100' ],
+                    ],
+                ],
+            ],
+
+            // ── Advisory Board repeater ───────────────────────────────────
+            [
+                'key'           => 'field_mt_advisory_board',
+                'label'         => 'Advisory Board Members',
+                'name'          => 'advisory_board',
+                'type'          => 'repeater',
+                'instructions'  => 'Add each advisory board member. Drag rows to reorder.',
+                'button_label'  => 'Add Advisory Member',
+                'layout'        => 'block',
+                'sub_fields'    => [
+                    [
+                        'key'           => 'field_mt_adv_name',
+                        'label'         => 'Full Name',
+                        'name'          => 'name',
+                        'type'          => 'text',
+                        'required'      => 1,
+                        'maxlength'     => 120,
+                        'wrapper'       => [ 'width' => '50' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_adv_photo',
+                        'label'         => 'Profile Photo',
+                        'name'          => 'photo',
+                        'type'          => 'image',
+                        'return_format' => 'url',
+                        'preview_size'  => 'thumbnail',
+                        'wrapper'       => [ 'width' => '30' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_adv_bio',
+                        'label'         => 'Short Bio',
+                        'name'          => 'bio',
+                        'type'          => 'textarea',
+                        'rows'          => 3,
+                        'maxlength'     => 1000,
+                        'wrapper'       => [ 'width' => '70' ],
+                    ],
+                    [
+                        'key'           => 'field_mt_adv_read_more',
+                        'label'         => 'Read More URL',
+                        'name'          => 'read_more_url',
+                        'type'          => 'url',
+                        'instructions'  => 'Link for the "Read More >" button.',
+                        'maxlength'     => 255,
+                        'wrapper'       => [ 'width' => '100' ],
+                    ],
+                ],
+            ],
+
+        ],
+        'location' => [
+            [
+                [
+                    'param'    => 'page_template',
+                    'operator' => '==',
+                    'value'    => $template_path,
+                ],
+            ],
+        ],
+        'menu_order'            => 0,
+        'position'              => 'normal',
+        'style'                 => 'default',
+        'label_placement'       => 'top',
+        'instruction_placement' => 'label',
+    ] );
+}
+
+
+// ============================================================
+// 10. FLUSH REWRITE RULES on Activation
 // ============================================================
 
 register_activation_hook( __FILE__, function() {
     aba_register_post_types();
+    aba_register_team_member_cpt();
     flush_rewrite_rules();
 } );
 
