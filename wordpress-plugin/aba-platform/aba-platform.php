@@ -1500,15 +1500,10 @@ function aba_mc_subscribe_handler(): void {
     }
     set_transient( $rate_key, $attempts + 1, HOUR_IN_SECONDS );
 
-    $email      = sanitize_email( wp_unslash( $_POST['email']      ?? '' ) );
-    $first_name = sanitize_text_field( wp_unslash( $_POST['first_name'] ?? '' ) );
-    $last_name  = sanitize_text_field( wp_unslash( $_POST['last_name']  ?? '' ) );
+    $email = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
 
     if ( ! is_email( $email ) ) {
         wp_send_json_error( 'Please enter a valid email address.' );
-    }
-    if ( strlen( $first_name ) > 100 || strlen( $last_name ) > 100 ) {
-        wp_send_json_error( 'Name is too long.' );
     }
 
     $list_id = get_option( ABA_MC_OPTION_LIST, '' );
@@ -1518,18 +1513,13 @@ function aba_mc_subscribe_handler(): void {
 
     $subscriber_hash = md5( strtolower( trim( $email ) ) );
 
-    $merge_fields = [];
-    if ( $first_name ) $merge_fields['FNAME'] = $first_name;
-    if ( $last_name )  $merge_fields['LNAME'] = $last_name;
-
     $result = aba_mc_api_json(
         'lists/' . rawurlencode( $list_id ) . '/members/' . $subscriber_hash,
         'PUT',
-        array_filter( [
+        [
             'email_address' => $email,
             'status_if_new' => 'subscribed',
-            'merge_fields'  => $merge_fields ?: null,
-        ] )
+        ]
     );
 
     if ( is_wp_error( $result ) ) {
@@ -1573,12 +1563,12 @@ function aba_newsletter_form_shortcode( array $atts = [] ): string {
     <div class="aba-newsletter-form" id="<?php echo esc_attr( $form_id ); ?>"
          style="font-family:system-ui,-apple-system,sans-serif;">
         <?php if ( $atts['heading'] ) : ?>
-            <h3 style="margin:0 0 6px;font-size:18px;font-weight:700;color:inherit;">
+            <h3 style="margin:0 0 6px;font-size:18px;font-weight:700;color:#ffffff;">
                 <?php echo esc_html( $atts['heading'] ); ?>
             </h3>
         <?php endif; ?>
         <?php if ( $atts['description'] ) : ?>
-            <p style="margin:0 0 14px;font-size:13px;opacity:.85;line-height:1.5;">
+            <p style="margin:0 0 14px;font-size:13px;color:#ffffff;opacity:.85;line-height:1.5;">
                 <?php echo esc_html( $atts['description'] ); ?>
             </p>
         <?php endif; ?>
@@ -1587,18 +1577,6 @@ function aba_newsletter_form_shortcode( array $atts = [] ): string {
             <input type="hidden" name="nonce"  value="<?php echo esc_attr( $nonce ); ?>" />
             <input type="hidden" name="action" value="aba_mc_subscribe" />
 
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
-                <input type="text"
-                       name="first_name"
-                       placeholder="First name"
-                       maxlength="100"
-                       style="flex:1;min-width:120px;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;background:#fff;color:#111827;" />
-                <input type="text"
-                       name="last_name"
-                       placeholder="Last name"
-                       maxlength="100"
-                       style="flex:1;min-width:120px;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;background:#fff;color:#111827;" />
-            </div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;">
                 <input type="email"
                        name="email"
