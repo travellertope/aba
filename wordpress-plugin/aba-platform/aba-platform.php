@@ -1096,3 +1096,633 @@ register_activation_hook( __FILE__, function() {
 } );
 
 register_deactivation_hook( __FILE__, 'flush_rewrite_rules' );
+
+
+// ============================================================
+// 11. MAILCHIMP NEWSLETTER — SETTINGS + SUBSCRIBE FORM
+// ============================================================
+
+define( 'ABA_MC_OPTION_KEY',  'aba_mailchimp_api_key' );
+define( 'ABA_MC_OPTION_LIST', 'aba_mailchimp_list_id' );
+define( 'ABA_MC_OPTION_TAGS', 'aba_mailchimp_tag_names' ); // JSON array of tag name strings
+
+// ── Admin menu ──────────────────────────────────────────────
+add_action( 'admin_menu', 'aba_mc_admin_menu' );
+
+function aba_mc_admin_menu(): void {
+    add_options_page(
+        'ABA Newsletter Settings',
+        'ABA Newsletter',
+        'manage_options',
+        'aba-newsletter',
+        'aba_mc_settings_page'
+    );
+}
+
+// ── Register settings ────────────────────────────────────────
+add_action( 'admin_init', 'aba_mc_register_settings' );
+
+function aba_mc_register_settings(): void {
+    register_setting( 'aba_mc_options', ABA_MC_OPTION_KEY,  [ 'sanitize_callback' => 'sanitize_text_field' ] );
+    register_setting( 'aba_mc_options', ABA_MC_OPTION_LIST, [ 'sanitize_callback' => 'sanitize_text_field' ] );
+    register_setting( 'aba_mc_options', ABA_MC_OPTION_TAGS, [
+        'sanitize_callback' => function( $raw ) {
+            $decoded = json_decode( $raw, true );
+            if ( ! is_array( $decoded ) ) {
+                return '[]';
+            }
+            return wp_json_encode( array_values( array_map( 'sanitize_text_field', $decoded ) ) );
+        },
+    ] );
+}
+
+// ── Mailchimp API helper ─────────────────────────────────────
+
+function aba_mc_api_json( string $endpoint, string $method = 'GET', array $body = [] ) {
+    $api_key = get_option( ABA_MC_OPTION_KEY, '' );
+    if ( ! $api_key ) {
+        return new WP_Error( 'no_key', 'Mailchimp API key is not set.' );
+    }
+
+    $dc_pos = strrpos( $api_key, '-' );
+    if ( false === $dc_pos ) {
+        return new WP_Error( 'bad_key', 'API key format invalid (expected xxxxx-dc1).' );
+    }
+    $dc  = substr( $api_key, $dc_pos + 1 );
+    $url = "https://{$dc}.api.mailchimp.com/3.0/{$endpoint}";
+
+    $args = [
+        'method'  => $method,
+        'headers' => [
+            'Authorization' => 'Basic ' . base64_encode( 'anystring:' . $api_key ),
+            'Content-Type'  => 'application/json',
+            'Accept'        => 'application/json',
+        ],
+        'timeout' => 15,
+    ];
+    if ( ! empty( $body ) ) {
+        $args['body'] = wp_json_encode( $body );
+    }
+
+    $response = wp_remote_request( $url, $args );
+    if ( is_wp_error( $response ) ) {
+        return $response;
+    }
+
+    $code = wp_remote_retrieve_response_code( $response );
+    $data = json_decode( wp_remote_retrieve_body( $response ), true );
+
+    if ( $code >= 400 ) {
+        $message = $data['detail'] ?? $data['title'] ?? "Mailchimp API error {$code}";
+        return new WP_Error( 'mc_api_error', $message, [ 'status' => $code ] );
+    }
+
+    return $data ?? [];
+}
+
+// ── AJAX: fetch audiences (admin only) ──────────────────────
+add_action( 'wp_ajax_aba_mc_fetch_audiences', 'aba_mc_ajax_fetch_audiences' );
+
+function aba_mc_ajax_fetch_audiences(): void {
+    check_ajax_referer( 'aba_mc_admin', 'nonce' );
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( 'Permission denied.' );
+    }
+
+    $data = aba_mc_api_json( 'lists?count=200&fields=lists.id,lists.name,total_items' );
+    if ( is_wp_error( $data ) ) {
+        wp_send_json_error( $data->get_error_message() );
+    }
+
+    $lists = array_map(
+        fn( $l ) => [ 'id' => $l['id'], 'name' => $l['name'] ],
+        $data['lists'] ?? []
+    );
+    wp_send_json_success( $lists );
+}
+
+// ── AJAX: search tags in a list (admin only) ─────────────────
+add_action( 'wp_ajax_aba_mc_fetch_tags', 'aba_mc_ajax_fetch_tags' );
+
+function aba_mc_ajax_fetch_tags(): void {
+    check_ajax_referer( 'aba_mc_admin', 'nonce' );
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( 'Permission denied.' );
+    }
+
+    $list_id = sanitize_text_field( $_POST['list_id'] ?? '' );
+    $search  = sanitize_text_field( $_POST['search']  ?? '' );
+
+    if ( ! $list_id ) {
+        wp_send_json_error( 'No audience ID.' );
+    }
+    if ( strlen( $search ) < 2 ) {
+        wp_send_json_success( [] );
+    }
+
+    $data = aba_mc_api_json(
+        'lists/' . rawurlencode( $list_id ) . '/tag-search?name=' . rawurlencode( $search )
+    );
+    if ( is_wp_error( $data ) ) {
+        wp_send_json_error( $data->get_error_message() );
+    }
+
+    $tags = array_map(
+        fn( $t ) => [ 'id' => $t['id'], 'name' => $t['name'] ],
+        $data['tags'] ?? []
+    );
+    wp_send_json_success( $tags );
+}
+
+// ── Enqueue jQuery on settings page ─────────────────────────
+add_action( 'admin_enqueue_scripts', function( $hook ) {
+    if ( 'settings_page_aba-newsletter' === $hook ) {
+        wp_enqueue_script( 'jquery' );
+    }
+} );
+
+// ── Settings page HTML ───────────────────────────────────────
+function aba_mc_settings_page(): void {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        return;
+    }
+
+    $api_key     = get_option( ABA_MC_OPTION_KEY,  '' );
+    $saved_list  = get_option( ABA_MC_OPTION_LIST,  '' );
+    $saved_tags  = json_decode( get_option( ABA_MC_OPTION_TAGS, '[]' ), true );
+    $admin_nonce = wp_create_nonce( 'aba_mc_admin' );
+    $connected   = ! empty( $api_key );
+    ?>
+    <div class="wrap">
+        <h1>ABA Newsletter — Mailchimp Settings</h1>
+        <?php settings_errors( 'aba_mc_options' ); ?>
+
+        <form method="post" action="options.php" id="aba-mc-settings-form">
+            <?php settings_fields( 'aba_mc_options' ); ?>
+
+            <!-- API Key -->
+            <h2 class="title">API Connection</h2>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><label for="aba_mc_api_key">Mailchimp API Key</label></th>
+                    <td>
+                        <input type="password"
+                               id="aba_mc_api_key"
+                               name="<?php echo ABA_MC_OPTION_KEY; ?>"
+                               value="<?php echo esc_attr( $api_key ); ?>"
+                               class="regular-text"
+                               autocomplete="off"
+                               placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-us1" />
+                        <?php if ( $connected ) : ?>
+                            <span style="margin-left:8px;color:#00a32a;font-weight:600;">&#10003; Connected</span>
+                        <?php endif; ?>
+                        <p class="description">
+                            Find your key in Mailchimp → Account → Extras → API keys.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Audience -->
+            <h2 class="title">Audience</h2>
+            <p>Select which Mailchimp audience new subscribers will be added to.</p>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><label for="aba_mc_audience_select">Audience</label></th>
+                    <td>
+                        <select id="aba_mc_audience_select"
+                                name="<?php echo ABA_MC_OPTION_LIST; ?>"
+                                style="min-width:300px;">
+                            <option value="">
+                                — <?php echo $connected ? 'Loading…' : 'Enter API key first'; ?> —
+                            </option>
+                            <?php if ( $saved_list ) : ?>
+                                <option value="<?php echo esc_attr( $saved_list ); ?>" selected>
+                                    <?php echo esc_html( $saved_list ); ?>
+                                </option>
+                            <?php endif; ?>
+                        </select>
+                        <?php if ( $connected ) : ?>
+                            <button type="button" id="aba-mc-refresh-audiences" class="button" style="margin-left:8px;">
+                                ↻ Refresh
+                            </button>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Tags -->
+            <h2 class="title">Tags</h2>
+            <p>Search for existing tags in the selected audience. All new subscribers will receive these tags automatically.</p>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">Search tags</th>
+                    <td>
+                        <input type="text"
+                               id="aba-mc-tag-search"
+                               class="regular-text"
+                               placeholder="Type at least 2 characters…"
+                               <?php echo ( $connected && $saved_list ) ? '' : 'disabled'; ?> />
+                        <div id="aba-mc-tag-results" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px;"></div>
+
+                        <input type="hidden"
+                               id="aba_mc_tag_names_field"
+                               name="<?php echo ABA_MC_OPTION_TAGS; ?>"
+                               value="<?php echo esc_attr( wp_json_encode( $saved_tags ) ); ?>" />
+
+                        <div style="margin-top:14px;">
+                            <strong>Selected tags:</strong>
+                            <div id="aba-mc-tag-chips"
+                                 style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;min-height:28px;">
+                                <?php foreach ( $saved_tags as $tag_name ) : ?>
+                                    <span class="aba-mc-chip"
+                                          data-tag="<?php echo esc_attr( $tag_name ); ?>"
+                                          style="background:#0073aa;color:#fff;padding:3px 12px;border-radius:12px;font-size:13px;cursor:pointer;"
+                                          title="Click to remove">
+                                        <?php echo esc_html( $tag_name ); ?> &times;
+                                    </span>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <p class="description">
+                            Click a result to add it. Click a blue chip to remove it.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button( 'Save Settings' ); ?>
+        </form>
+
+        <hr />
+        <h2>Embed the Subscribe Form</h2>
+        <p>Use this shortcode anywhere, including a text/HTML widget in the footer widget area:</p>
+        <code style="font-size:14px;padding:7px 12px;display:inline-block;background:#f0f0f1;border-radius:4px;">
+            [aba_newsletter_form]
+        </code>
+        <p style="margin-top:12px;">Optional attributes:</p>
+        <code style="font-size:14px;padding:7px 12px;display:inline-block;background:#f0f0f1;border-radius:4px;">
+            [aba_newsletter_form heading="Stay in the loop" description="Get our latest news." button_text="Join Now"]
+        </code>
+        <p>Or add the <strong>ABA Newsletter Subscribe</strong> widget to any widget area (Appearance → Widgets).</p>
+    </div>
+
+    <script>
+    (function($) {
+        var nonce    = <?php echo wp_json_encode( $admin_nonce ); ?>;
+        var ajaxUrl  = <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>;
+        var savedList = <?php echo wp_json_encode( $saved_list ); ?>;
+        var selectedTags = <?php echo wp_json_encode( $saved_tags ); ?>;
+        var tagSearchTimer;
+
+        function updateHiddenField() {
+            $('#aba_mc_tag_names_field').val(JSON.stringify(selectedTags));
+        }
+
+        function renderChips() {
+            var $chips = $('#aba-mc-tag-chips').empty();
+            selectedTags.forEach(function(name) {
+                $('<span class="aba-mc-chip">')
+                    .text(name + ' ×')
+                    .attr('data-tag', name)
+                    .css({
+                        background: '#0073aa', color: '#fff',
+                        padding: '3px 12px', borderRadius: '12px',
+                        fontSize: '13px', cursor: 'pointer'
+                    })
+                    .on('click', function() {
+                        selectedTags = selectedTags.filter(function(t) { return t !== name; });
+                        updateHiddenField();
+                        renderChips();
+                    })
+                    .appendTo($chips);
+            });
+        }
+
+        function loadAudiences(preselectId) {
+            var $select = $('#aba_mc_audience_select').prop('disabled', true);
+            $.post(ajaxUrl, { action: 'aba_mc_fetch_audiences', nonce: nonce }, function(resp) {
+                $select.empty().append('<option value="">— Select an audience —</option>');
+                if (resp.success && resp.data.length) {
+                    resp.data.forEach(function(list) {
+                        var selected = (list.id === (preselectId || savedList)) ? ' selected' : '';
+                        $select.append(
+                            '<option value="' + list.id + '"' + selected + '>' +
+                            list.name + ' (' + list.id + ')</option>'
+                        );
+                    });
+                } else {
+                    $select.append('<option value="">— No audiences found —</option>');
+                    console.error('MC fetch audiences:', resp.data);
+                }
+                $select.prop('disabled', false);
+                if ($select.val()) {
+                    $('#aba-mc-tag-search').prop('disabled', false);
+                }
+            });
+        }
+
+        <?php if ( $connected ) : ?>
+        loadAudiences(savedList);
+        <?php endif; ?>
+
+        $('#aba-mc-refresh-audiences').on('click', function() { loadAudiences(''); });
+
+        $('#aba_mc_audience_select').on('change', function() {
+            var hasAudience = !!$(this).val();
+            $('#aba-mc-tag-search').prop('disabled', !hasAudience);
+            $('#aba-mc-tag-results').empty();
+        });
+
+        $('#aba-mc-tag-search').on('input', function() {
+            var query = $(this).val().trim();
+            clearTimeout(tagSearchTimer);
+            $('#aba-mc-tag-results').empty();
+            if (query.length < 2) return;
+
+            tagSearchTimer = setTimeout(function() {
+                var listId = $('#aba_mc_audience_select').val();
+                if (!listId) return;
+                $.post(ajaxUrl, {
+                    action: 'aba_mc_fetch_tags',
+                    nonce: nonce,
+                    list_id: listId,
+                    search: query
+                }, function(resp) {
+                    var $results = $('#aba-mc-tag-results').empty();
+                    if (!resp.success || !resp.data.length) {
+                        $results.html('<em style="color:#777;font-size:13px;">No tags found for "' + query + '"</em>');
+                        return;
+                    }
+                    resp.data.forEach(function(tag) {
+                        if (selectedTags.indexOf(tag.name) !== -1) return;
+                        $('<span>')
+                            .text('+ ' + tag.name)
+                            .css({
+                                display: 'inline-block',
+                                background: '#f0f6fc', border: '1px solid #0073aa',
+                                color: '#0073aa', padding: '3px 12px',
+                                borderRadius: '12px', fontSize: '13px', cursor: 'pointer'
+                            })
+                            .on('click', function() {
+                                if (selectedTags.indexOf(tag.name) === -1) {
+                                    selectedTags.push(tag.name);
+                                    updateHiddenField();
+                                    renderChips();
+                                }
+                                $results.empty();
+                                $('#aba-mc-tag-search').val('');
+                            })
+                            .appendTo($results);
+                    });
+                });
+            }, 400);
+        });
+
+    })(jQuery);
+    </script>
+    <?php
+}
+
+// ── Public AJAX: subscribe ───────────────────────────────────
+add_action( 'wp_ajax_nopriv_aba_mc_subscribe', 'aba_mc_subscribe_handler' );
+add_action( 'wp_ajax_aba_mc_subscribe',        'aba_mc_subscribe_handler' );
+
+function aba_mc_subscribe_handler(): void {
+    check_ajax_referer( 'aba_newsletter_nonce', 'nonce' );
+
+    // Rate limit: 3 attempts per IP per hour
+    $ip       = sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0' );
+    $rate_key = 'aba_mc_rate_' . md5( $ip );
+    $attempts = (int) get_transient( $rate_key );
+    if ( $attempts >= 3 ) {
+        wp_send_json_error( 'Too many attempts. Please try again in an hour.' );
+    }
+    set_transient( $rate_key, $attempts + 1, HOUR_IN_SECONDS );
+
+    $email      = sanitize_email( wp_unslash( $_POST['email']      ?? '' ) );
+    $first_name = sanitize_text_field( wp_unslash( $_POST['first_name'] ?? '' ) );
+    $last_name  = sanitize_text_field( wp_unslash( $_POST['last_name']  ?? '' ) );
+
+    if ( ! is_email( $email ) ) {
+        wp_send_json_error( 'Please enter a valid email address.' );
+    }
+    if ( strlen( $first_name ) > 100 || strlen( $last_name ) > 100 ) {
+        wp_send_json_error( 'Name is too long.' );
+    }
+
+    $list_id = get_option( ABA_MC_OPTION_LIST, '' );
+    if ( ! $list_id ) {
+        wp_send_json_error( 'Newsletter is not configured yet. Please try again later.' );
+    }
+
+    $subscriber_hash = md5( strtolower( trim( $email ) ) );
+
+    $merge_fields = [];
+    if ( $first_name ) $merge_fields['FNAME'] = $first_name;
+    if ( $last_name )  $merge_fields['LNAME'] = $last_name;
+
+    $result = aba_mc_api_json(
+        'lists/' . rawurlencode( $list_id ) . '/members/' . $subscriber_hash,
+        'PUT',
+        array_filter( [
+            'email_address' => $email,
+            'status_if_new' => 'subscribed',
+            'merge_fields'  => $merge_fields ?: null,
+        ] )
+    );
+
+    if ( is_wp_error( $result ) ) {
+        error_log( '[aba_mc_subscribe] ' . $result->get_error_message() );
+        wp_send_json_error( 'Something went wrong. Please try again shortly.' );
+    }
+
+    // Apply configured tags (non-blocking — tag failure does not fail the subscription)
+    $tag_names = json_decode( get_option( ABA_MC_OPTION_TAGS, '[]' ), true );
+    if ( ! empty( $tag_names ) && is_array( $tag_names ) ) {
+        $tags = array_map(
+            fn( $name ) => [ 'name' => $name, 'status' => 'active' ],
+            $tag_names
+        );
+        aba_mc_api_json(
+            'lists/' . rawurlencode( $list_id ) . '/members/' . $subscriber_hash . '/tags',
+            'POST',
+            [ 'tags' => $tags ]
+        );
+    }
+
+    wp_send_json_success( 'Thank you for subscribing! Welcome to the ABA community.' );
+}
+
+// ── Shortcode: [aba_newsletter_form] ────────────────────────
+add_shortcode( 'aba_newsletter_form', 'aba_newsletter_form_shortcode' );
+
+function aba_newsletter_form_shortcode( array $atts = [] ): string {
+    $atts = shortcode_atts( [
+        'heading'     => 'Subscribe to our newsletter',
+        'description' => 'Stay informed about events, opportunities, and news from the African Business Association.',
+        'button_text' => 'Subscribe',
+    ], $atts, 'aba_newsletter_form' );
+
+    $nonce    = wp_create_nonce( 'aba_newsletter_nonce' );
+    $ajax_url = admin_url( 'admin-ajax.php' );
+    $form_id  = 'aba-nl-' . wp_rand( 1000, 9999 );
+
+    ob_start();
+    ?>
+    <div class="aba-newsletter-form" id="<?php echo esc_attr( $form_id ); ?>"
+         style="font-family:system-ui,-apple-system,sans-serif;">
+        <?php if ( $atts['heading'] ) : ?>
+            <h3 style="margin:0 0 6px;font-size:18px;font-weight:700;color:inherit;">
+                <?php echo esc_html( $atts['heading'] ); ?>
+            </h3>
+        <?php endif; ?>
+        <?php if ( $atts['description'] ) : ?>
+            <p style="margin:0 0 14px;font-size:13px;opacity:.85;line-height:1.5;">
+                <?php echo esc_html( $atts['description'] ); ?>
+            </p>
+        <?php endif; ?>
+
+        <form class="aba-nl-inner" novalidate>
+            <input type="hidden" name="nonce"  value="<?php echo esc_attr( $nonce ); ?>" />
+            <input type="hidden" name="action" value="aba_mc_subscribe" />
+
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                <input type="text"
+                       name="first_name"
+                       placeholder="First name"
+                       maxlength="100"
+                       style="flex:1;min-width:120px;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;background:#fff;color:#111827;" />
+                <input type="text"
+                       name="last_name"
+                       placeholder="Last name"
+                       maxlength="100"
+                       style="flex:1;min-width:120px;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;background:#fff;color:#111827;" />
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                <input type="email"
+                       name="email"
+                       placeholder="Email address"
+                       maxlength="254"
+                       required
+                       style="flex:1;min-width:200px;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;background:#fff;color:#111827;" />
+                <button type="submit"
+                        style="padding:9px 20px;background:#d4a843;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;">
+                    <?php echo esc_html( $atts['button_text'] ); ?>
+                </button>
+            </div>
+            <div class="aba-nl-msg"
+                 role="status"
+                 style="margin-top:8px;font-size:13px;min-height:18px;"></div>
+        </form>
+    </div>
+    <script>
+    (function() {
+        var wrap    = document.getElementById(<?php echo wp_json_encode( $form_id ); ?>);
+        var form    = wrap.querySelector('.aba-nl-inner');
+        var msg     = wrap.querySelector('.aba-nl-msg');
+        var btnText = <?php echo wp_json_encode( $atts['button_text'] ); ?>;
+        var ajaxUrl = <?php echo wp_json_encode( $ajax_url ); ?>;
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var email = form.querySelector('[name="email"]').value.trim();
+            if (!email) {
+                msg.textContent = 'Please enter your email address.';
+                msg.style.color = '#dc2626';
+                return;
+            }
+            var btn = form.querySelector('[type="submit"]');
+            btn.disabled = true;
+            btn.textContent = 'Subscribing…';
+            msg.textContent = '';
+
+            fetch(ajaxUrl, { method: 'POST', body: new FormData(form) })
+                .then(function(r) { return r.json(); })
+                .then(function(resp) {
+                    if (resp.success) {
+                        msg.textContent = resp.data;
+                        msg.style.color = '#16a34a';
+                        form.reset();
+                    } else {
+                        msg.textContent = resp.data || 'Something went wrong.';
+                        msg.style.color = '#dc2626';
+                    }
+                })
+                .catch(function() {
+                    msg.textContent = 'Network error. Please try again.';
+                    msg.style.color = '#dc2626';
+                })
+                .finally(function() {
+                    btn.disabled = false;
+                    btn.textContent = btnText;
+                });
+        });
+    })();
+    </script>
+    <?php
+    return ob_get_clean();
+}
+
+// ── Footer Widget ────────────────────────────────────────────
+add_action( 'widgets_init', function() {
+    register_widget( 'ABA_Newsletter_Widget' );
+} );
+
+class ABA_Newsletter_Widget extends WP_Widget {
+
+    public function __construct() {
+        parent::__construct(
+            'aba_newsletter_widget',
+            'ABA Newsletter Subscribe',
+            [ 'description' => 'Mailchimp newsletter subscribe form for the footer.' ]
+        );
+    }
+
+    public function widget( $args, $instance ): void {
+        echo $args['before_widget'];
+        echo do_shortcode( sprintf(
+            '[aba_newsletter_form heading="%s" description="%s" button_text="%s"]',
+            esc_attr( $instance['heading']     ?? 'Subscribe to our newsletter' ),
+            esc_attr( $instance['description'] ?? '' ),
+            esc_attr( $instance['button_text'] ?? 'Subscribe' )
+        ) );
+        echo $args['after_widget'];
+    }
+
+    public function form( $instance ): void {
+        $heading     = $instance['heading']     ?? 'Subscribe to our newsletter';
+        $description = $instance['description'] ?? 'Stay informed about events, opportunities, and news from the African Business Association.';
+        $button_text = $instance['button_text'] ?? 'Subscribe';
+        ?>
+        <p>
+            <label for="<?php echo $this->get_field_id( 'heading' ); ?>">Heading</label>
+            <input class="widefat" type="text"
+                   id="<?php echo $this->get_field_id( 'heading' ); ?>"
+                   name="<?php echo $this->get_field_name( 'heading' ); ?>"
+                   value="<?php echo esc_attr( $heading ); ?>" />
+        </p>
+        <p>
+            <label for="<?php echo $this->get_field_id( 'description' ); ?>">Description</label>
+            <textarea class="widefat" rows="2"
+                      id="<?php echo $this->get_field_id( 'description' ); ?>"
+                      name="<?php echo $this->get_field_name( 'description' ); ?>"><?php echo esc_textarea( $description ); ?></textarea>
+        </p>
+        <p>
+            <label for="<?php echo $this->get_field_id( 'button_text' ); ?>">Button text</label>
+            <input class="widefat" type="text"
+                   id="<?php echo $this->get_field_id( 'button_text' ); ?>"
+                   name="<?php echo $this->get_field_name( 'button_text' ); ?>"
+                   value="<?php echo esc_attr( $button_text ); ?>" />
+        </p>
+        <?php
+    }
+
+    public function update( $new_instance, $old_instance ): array {
+        return [
+            'heading'     => sanitize_text_field( $new_instance['heading']     ?? '' ),
+            'description' => sanitize_text_field( $new_instance['description'] ?? '' ),
+            'button_text' => sanitize_text_field( $new_instance['button_text'] ?? '' ),
+        ];
+    }
+}
